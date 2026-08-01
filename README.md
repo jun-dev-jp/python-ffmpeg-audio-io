@@ -23,10 +23,24 @@ uv pip install git+https://github.com/YOUR_USERNAME/python-ffmpeg-audio-io.git
 ## Quick Start
 
 ```python
-import numpy as np
-from python_ffmpeg_audio_io import AudioReader, AudioWriter  # Adjust based on your actual module structure
+from pathlib import Path
+from python_ffmpeg_audio_io import (
+    decode_to_PCM_F32LE_with_ffmpeg,
+    MP3Encoder,
+    MP3EncoderBitrate,
+    MP3EncoderMode,
+)
+from python_ffmpeg_audio_io.pcm import PCMFormat
 
-# Example usage goes here
+# 1. Decode an audio file to raw PCM bytes
+audio_path = Path("samples/sample.mp3")
+pcm_data, sample_rate, channels = decode_to_PCM_F32LE_with_ffmpeg(audio_path)
+
+# 2. Encode PCM bytes to MP3
+encoder = MP3Encoder(bitrate=MP3EncoderBitrate.Kbps_192, mode=MP3EncoderMode.CBR)
+output_path = Path("output.mp3")
+encoder(pcm_data, PCMFormat.F32LE, sample_rate, channels, output_path, overwrite=True)
+print(f"Successfully encoded to {output_path}")
 ```
 
 ## License
