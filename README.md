@@ -1,12 +1,12 @@
 # python-ffmpeg-audio-io
 
-A lightweight, robust Python audio I/O library powered by FFmpeg and NumPy, designed without heavy third-party wrappers (`ffmpeg-python`, `pydub`, etc.).
+A lightweight, robust Python audio I/O library powered by FFmpeg, designed without heavy third-party wrappers (`ffmpeg-python`, `pydub`, etc.).
 
 ## Features
 
 - **Direct FFmpeg/FFprobe integration**: Uses standard library `subprocess` and FFmpeg for maximum reliability and flexibility.
-- **NumPy native**: Seamlessly read audio streams directly into NumPy arrays and write NumPy arrays back to various audio formats.
 - **Type-hinted & Robust**: Fully type-hinted with robust error handling (capturing detailed FFmpeg stderr messages).
+- **Supported Encoders**: Currently supports encoding to **MP3**, **AAC**, and **AIFF**.
 
 ## Requirements
 
@@ -16,8 +16,15 @@ A lightweight, robust Python audio I/O library powered by FFmpeg and NumPy, desi
 ## Installation
 
 ```bash
-# Install directly from GitHub using uv or pip
+# Install directly from GitHub using uv or pip (HTTPS)
 uv pip install git+https://github.com/YOUR_USERNAME/python-ffmpeg-audio-io.git
+
+# Or using SSH
+uv pip install git+ssh://git@github.com/YOUR_USERNAME/python-ffmpeg-audio-io.git
+
+# To add it as a dependency to your uv project:
+uv add git+https://github.com/YOUR_USERNAME/python-ffmpeg-audio-io.git
+uv add git+ssh://git@github.com/YOUR_USERNAME/python-ffmpeg-audio-io.git
 ```
 
 ## Quick Start
