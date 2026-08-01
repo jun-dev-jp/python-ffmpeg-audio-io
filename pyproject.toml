@@ -1,0 +1,26 @@
+[project]
+name = "python-ffmpeg-audio-io"
+version = "0.1.0"
+description = "A lightweight, robust Python audio I/O library powered by FFmpeg and NumPy, without heavy third-party wrappers."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "numpy>=1.20.0",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Multimedia :: Sound/Audio",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.0,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.16.1",
+]
