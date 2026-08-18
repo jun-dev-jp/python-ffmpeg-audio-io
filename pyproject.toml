@@ -1,13 +1,14 @@
 [project]
 name = "python-ffmpeg-audio-io"
 version = "0.1.0"
-description = "A lightweight, robust Python audio I/O library powered by FFmpeg and NumPy, without heavy third-party wrappers."
+description = "A lightweight, robust Python audio I/O library powered by FFmpeg without heavy third-party wrappers."
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = []
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "License :: OSI Approved :: MIT License",
     "Topic :: Multimedia :: Sound/Audio",
     "Topic :: Software Development :: Libraries :: Python Modules",
@@ -22,3 +23,15 @@ dev = [
     "pytest>=9.1.1",
     "ruff>=0.16.1",
 ]
+
+[tool.ruff]
+line-length = 88
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "RUF"]
+ignore = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]

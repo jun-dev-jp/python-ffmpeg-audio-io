@@ -1,18 +1,18 @@
-"""Example script demonstrating usage of decoder and SimpleMP3Encoder with samples/sample.mp3."""
+"""Example script demonstrating usage of decoder and MP3Encoder."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from python_ffmpeg_audio_io.decoder import decode_to_PCM_F32LE_with_ffmpeg
+from python_ffmpeg_audio_io.decoder import decode
 from python_ffmpeg_audio_io.encoder.mp3 import (
     MP3Encoder,
     MP3EncoderBitrate,
     MP3EncoderMode,
     MP3EncoderQualityLevel,
 )
-from python_ffmpeg_audio_io.exceptions import FFmpegError
-from python_ffmpeg_audio_io.pcm import PCMFormat
+from python_ffmpeg_audio_io.exceptions import PyFFmpegAudioIOError
+from python_ffmpeg_audio_io.pcm import PCMCodec
 
 
 def main() -> None:
@@ -26,16 +26,14 @@ def main() -> None:
 
     print(f"=== Decoding sample file: {sample_path} ===")
     try:
-        pcm_data, sample_rate, channels = decode_to_PCM_F32LE_with_ffmpeg(sample_path)
+        pcm = decode(sample_path, PCMCodec.PCM_F32LE)
         print("Successfully decoded!")
-        print(f"  - Sample Rate: {sample_rate.value} Hz ({sample_rate.name})")
-        print(f"  - Channels: {channels.value} ({channels.name})")
-        print(f"  - Data Size: {len(pcm_data)} bytes")
-    except FFmpegError as e:
+        print(f"  - Sample Rate: {pcm.sample_rate.value} Hz ({pcm.sample_rate.name})")
+        print(f"  - Channels: {pcm.channels.value} ({pcm.channels.name})")
+        print(f"  - Data Size: {len(pcm.data)} bytes")
+    except PyFFmpegAudioIOError as e:
         print(f"Failed to decode sample file: {e}")
         return
-
-    pcm_format = PCMFormat.F32LE
 
     print("\n=== Encoding to MP3 with Various Settings ===")
 
@@ -48,11 +46,9 @@ def main() -> None:
         out_path = output_dir / f"demo_mp3_encoder_cbr_{bitrate.value}.mp3"
         encoder = MP3Encoder(bitrate=bitrate, mode=MP3EncoderMode.CBR)
         try:
-            encoder(
-                pcm_data, pcm_format, sample_rate, channels, out_path, overwrite=True
-            )
+            encoder(pcm, out_path, overwrite=True)
             print(f"Successfully encoded: {out_path.name} (bitrate={bitrate.value})")
-        except FFmpegError as e:
+        except PyFFmpegAudioIOError as e:
             print(f"Failed encoding {out_path.name}: {e}")
 
     # 2. Test ABR (Average Bitrate)
@@ -61,11 +57,9 @@ def main() -> None:
         out_path = output_dir / f"demo_mp3_encoder_abr_{bitrate.value}.mp3"
         encoder = MP3Encoder(bitrate=bitrate, mode=MP3EncoderMode.ABR)
         try:
-            encoder(
-                pcm_data, pcm_format, sample_rate, channels, out_path, overwrite=True
-            )
+            encoder(pcm, out_path, overwrite=True)
             print(f"Successfully encoded: {out_path.name} (bitrate={bitrate.value})")
-        except FFmpegError as e:
+        except PyFFmpegAudioIOError as e:
             print(f"Failed encoding {out_path.name}: {e}")
 
     # 3. Test VBR (Variable Bitrate) with different quality levels
@@ -78,13 +72,10 @@ def main() -> None:
         out_path = output_dir / f"demo_mp3_encoder_vbr_q{quality.value}.mp3"
         encoder = MP3Encoder(quality=quality, mode=MP3EncoderMode.VBR)
         try:
-            encoder(
-                pcm_data, pcm_format, sample_rate, channels, out_path, overwrite=True
-            )
-            print(
-                f"Successfully encoded: {out_path.name} (quality=q{quality.value}, 0=best, 9=worst)"
-            )
-        except FFmpegError as e:
+            encoder(pcm, out_path, overwrite=True)
+            msg = f"quality=q{quality.value}, 0=best, 9=worst"
+            print(f"Successfully encoded: {out_path.name} ({msg})")
+        except PyFFmpegAudioIOError as e:
             print(f"Failed encoding {out_path.name}: {e}")
 
     print(f"\nAll MP3 files successfully generated under: {output_dir.resolve()}")

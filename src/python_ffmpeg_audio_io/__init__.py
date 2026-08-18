@@ -1,6 +1,8 @@
 """python-ffmpeg-audio-io package."""
 
-from .decoder import decode_to_PCM_F32LE_with_ffmpeg
+from __future__ import annotations
+
+from .decoder import decode
 from .encoder.aac import (
     AACEncoder,
     AACEncoderBitrate,
@@ -10,32 +12,60 @@ from .encoder.aac import (
 from .encoder.aiff import (
     AIFFEncoder,
 )
+from .encoder.base import (
+    BaseAudioEncoder,
+)
 from .encoder.mp3 import (
     MP3Encoder,
     MP3EncoderBitrate,
     MP3EncoderMode,
     MP3EncoderQualityLevel,
 )
-from .exceptions import FFmpegError, PyFFmpegAudioIOError
-from .ffprobe import get_audio_info_from_ffprobe, run_ffprobe
+from .exceptions import (
+    FFmpegError,
+    FFmpegNotFoundError,
+    FileReadError,
+    FileWriteError,
+    PyFFmpegAudioIOError,
+)
+from .ffprobe import (
+    AudioInfo,
+    FFprobeLogLevel,
+    get_audio_info,
+    run_ffprobe,
+)
+from .pcm import (
+    PCM,
+    PCMChannels,
+    PCMCodec,
+    PCMFormat,
+    PCMSampleRate,
+)
 
 __all__ = [
+    "PCM",
     "AACEncoder",
     "AACEncoderBitrate",
     "AACEncoderMode",
     "AACEncoderQualityLevel",
     "AIFFEncoder",
+    "AudioInfo",
+    "BaseAudioEncoder",
     "FFmpegError",
+    "FFmpegNotFoundError",
+    "FFprobeLogLevel",
+    "FileReadError",
+    "FileWriteError",
     "MP3Encoder",
     "MP3EncoderBitrate",
     "MP3EncoderMode",
     "MP3EncoderQualityLevel",
+    "PCMChannels",
+    "PCMCodec",
+    "PCMFormat",
+    "PCMSampleRate",
     "PyFFmpegAudioIOError",
-    "decode_to_PCM_F32LE_with_ffmpeg",
-    "get_audio_info_from_ffprobe",
+    "decode",
+    "get_audio_info",
     "run_ffprobe",
 ]
-
-
-def hello() -> str:
-    return "Hello from python-ffmpeg-audio-io!"

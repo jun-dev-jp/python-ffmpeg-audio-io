@@ -1,9 +1,13 @@
-"""Example script demonstrating usage of decode_to_PCM_F32LE_with_ffmpeg with samples/sample.mp3."""
+"""Example script demonstrating usage of decode with samples/sample.mp3."""
 
 from pathlib import Path
 
-from python_ffmpeg_audio_io.decoder import decode_to_PCM_F32LE_with_ffmpeg
-from python_ffmpeg_audio_io.exceptions import FFmpegError, PyFFmpegAudioIOError
+from python_ffmpeg_audio_io.decoder import decode
+from python_ffmpeg_audio_io.exceptions import (
+    FFmpegError,
+    FileReadError,
+    PyFFmpegAudioIOError,
+)
 
 
 def main() -> None:
@@ -15,12 +19,13 @@ def main() -> None:
     print(f"Decoding sample file to PCM F32LE: {sample_path}\n")
 
     try:
-        pcm_data, sample_rate, channels = decode_to_PCM_F32LE_with_ffmpeg(sample_path)
+        pcm = decode(sample_path)
         print("Successfully decoded audio!")
-        print(f"  - Sample Rate: {sample_rate.value} Hz ({sample_rate.name})")
-        print(f"  - Channels: {channels.value} ({channels.name})")
-        print(f"  - Decoded Data Size: {len(pcm_data)} bytes")
-    except (FileNotFoundError, FFmpegError, PyFFmpegAudioIOError) as e:
+        print(f"  - Sample Rate: {pcm.sample_rate.value} Hz ({pcm.sample_rate.name})")
+        print(f"  - Channels: {pcm.channels.value} ({pcm.channels.name})")
+        print(f"  - Format: {pcm.format.value} ({pcm.format.name})")
+        print(f"  - Decoded Data Size: {len(pcm.data)} bytes")
+    except (FileReadError, FFmpegError, PyFFmpegAudioIOError) as e:
         print(f"Error decoding audio: {e}")
 
     print("\nDone!")

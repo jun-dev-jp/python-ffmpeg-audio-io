@@ -1,103 +1,364 @@
-"""Tests for python-ffmpeg-audio-io package."""
+"""Comprehensive tests for python-ffmpeg-audio-io package."""
 
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 
-from python_ffmpeg_audio_io.decoder import decode_to_PCM_F32LE_with_ffmpeg
+from python_ffmpeg_audio_io.decoder import decode
 from python_ffmpeg_audio_io.encoder.aac import (
     AACEncoder,
     AACEncoderBitrate,
     AACEncoderMode,
+    AACEncoderQualityLevel,
 )
 from python_ffmpeg_audio_io.encoder.aiff import AIFFEncoder
 from python_ffmpeg_audio_io.encoder.mp3 import (
     MP3Encoder,
     MP3EncoderBitrate,
     MP3EncoderMode,
+    MP3EncoderQualityLevel,
 )
-from python_ffmpeg_audio_io.ffprobe import get_audio_info_from_ffprobe
+from python_ffmpeg_audio_io.exceptions import (
+    FileReadError,
+    FileWriteError,
+)
+from python_ffmpeg_audio_io.ffprobe import (
+    AudioInfo,
+    FFprobeLogLevel,
+    get_audio_info,
+    run_ffprobe,
+)
+from python_ffmpeg_audio_io.pcm import (
+    PCM,
+    PCMChannels,
+    PCMCodec,
+    PCMFormat,
+    PCMSampleRate,
+)
 
 
 def test_sample_exists() -> None:
+    """Verify that sample audio file exists."""
     sample_path = Path("samples/sample.mp3")
     assert sample_path.exists(), f"Sample file not found at {sample_path}"
 
 
 def test_ffprobe_on_sample() -> None:
+    """Verify metadata extraction with ffprobe and get_audio_info."""
     sample_path = Path("samples/sample.mp3")
-    if not sample_path.exists():
-        return
-    info = get_audio_info_from_ffprobe(sample_path)
+    info = get_audio_info(sample_path)
+
+    assert isinstance(info, AudioInfo)
     assert info.sample_rate == 44100
-    assert info.channels  == 1
-    assert info.duration == 36.022857
+    assert info.channels == 1
+    assert abs(info.duration - 36.022857) < 0.1
+    assert info.codec_name == "mp3"
+    assert info.format_name == "mp3"
+    assert info.size > 0
+    assert info.bit_rate > 0
+
+    raw_data = run_ffprobe(sample_path, log_level=FFprobeLogLevel.ERROR)
+    assert "streams" in raw_data
+    assert "format" in raw_data
 
 
-def test_encoders_instantiation() -> None:
+def test_decoder_on_sample() -> None:
+    """Verify decoding sample audio to PCM."""
+    sample_path = Path("samples/sample.mp3")
+    pcm = decode(sample_path, pcm_codec=PCMCodec.PCM_F32LE)
+
+    assert isinstance(pcm, PCM)
+    assert pcm.format == PCMFormat.F32LE
+    assert pcm.sample_rate == PCMSampleRate.RATE_44K
+    assert pcm.channels == PCMChannels.MONO
+    assert len(pcm.data) > 0
+
+    # Also test decoding to another codec (e.g. S16LE)
+    pcm_s16 = decode(sample_path, pcm_codec=PCMCodec.PCM_S16LE)
+    assert pcm_s16.format == PCMFormat.S16LE
+    assert len(pcm_s16.data) > 0
+
+
+def test_encoders_instantiation_and_properties() -> None:
+    """Test instantiation and property getters/setters for all encoders."""
+    # 1. AAC Encoder
     aac_encoder = AACEncoder(
-        bitrate=AACEncoderBitrate.Kbps_128, mode=AACEncoderMode.CBR
+        bitrate=AACEncoderBitrate.Kbps_128,
+        mode=AACEncoderMode.CBR,
+        quality=AACEncoderQualityLevel.Quality_3,
     )
+    assert aac_encoder.codec == "aac"
     assert aac_encoder.bitrate == AACEncoderBitrate.Kbps_128
     assert aac_encoder.mode == AACEncoderMode.CBR
+    assert aac_encoder.quality == AACEncoderQualityLevel.Quality_3
 
+    aac_encoder.bitrate = AACEncoderBitrate.Kbps_256
+    assert aac_encoder.bitrate == AACEncoderBitrate.Kbps_256
+    aac_encoder.mode = AACEncoderMode.VBR
+    assert aac_encoder.mode == AACEncoderMode.VBR
+    aac_encoder.quality = AACEncoderQualityLevel.Quality_5
+    assert aac_encoder.quality == AACEncoderQualityLevel.Quality_5
+
+    with pytest.raises(TypeError):
+        aac_encoder.bitrate = cast(Any, "invalid")
+    with pytest.raises(TypeError):
+        aac_encoder.mode = cast(Any, "invalid")
+    with pytest.raises(TypeError):
+        aac_encoder.quality = cast(Any, "invalid")
+
+    # 2. MP3 Encoder
     mp3_encoder = MP3Encoder(
-        bitrate=MP3EncoderBitrate.Kbps_192, mode=MP3EncoderMode.CBR
+        bitrate=MP3EncoderBitrate.Kbps_192,
+        mode=MP3EncoderMode.CBR,
+        quality=MP3EncoderQualityLevel.Quality_2,
     )
+    assert mp3_encoder.codec == "libmp3lame"
     assert mp3_encoder.bitrate == MP3EncoderBitrate.Kbps_192
     assert mp3_encoder.mode == MP3EncoderMode.CBR
+    assert mp3_encoder.quality == MP3EncoderQualityLevel.Quality_2
 
-    aiff_encoder = AIFFEncoder()
-    assert aiff_encoder.codec.value == "pcm_s16be"
+    mp3_encoder.bitrate = MP3EncoderBitrate.Kbps_320
+    assert mp3_encoder.bitrate == MP3EncoderBitrate.Kbps_320
+    mp3_encoder.mode = MP3EncoderMode.ABR
+    assert mp3_encoder.mode == MP3EncoderMode.ABR
+    mp3_encoder.quality = MP3EncoderQualityLevel.Quality_0
+    assert mp3_encoder.quality == MP3EncoderQualityLevel.Quality_0
+
+    with pytest.raises(TypeError):
+        mp3_encoder.bitrate = cast(Any, "invalid")
+    with pytest.raises(TypeError):
+        mp3_encoder.mode = cast(Any, "invalid")
+    with pytest.raises(TypeError):
+        mp3_encoder.quality = cast(Any, "invalid")
+
+    # 3. AIFF Encoder
+    aiff_encoder = AIFFEncoder(codec=PCMCodec.PCM_S16BE)
+    assert aiff_encoder.codec == PCMCodec.PCM_S16BE
+    aiff_encoder.codec = PCMCodec.PCM_S24BE
+    assert aiff_encoder.codec == PCMCodec.PCM_S24BE
+
+    with pytest.raises(TypeError):
+        aiff_encoder.codec = cast(Any, "invalid")
+
+
+def test_encode_mp3(tmp_path: Path) -> None:
+    """Test actual encoding of PCM data to MP3 files with different modes."""
+    sample_path = Path("samples/sample.mp3")
+    pcm = decode(sample_path)
+
+    # 1. CBR
+    out_cbr = tmp_path / "test_cbr.mp3"
+    encoder_cbr = MP3Encoder(
+        bitrate=MP3EncoderBitrate.Kbps_128, mode=MP3EncoderMode.CBR
+    )
+    encoder_cbr(pcm, out_cbr)
+    assert out_cbr.exists()
+    assert out_cbr.stat().st_size > 0
+    info_cbr = get_audio_info(out_cbr)
+    assert info_cbr.channels == 1
+    assert info_cbr.sample_rate == 44100
+
+    # 2. ABR
+    out_abr = tmp_path / "test_abr.mp3"
+    encoder_abr = MP3Encoder(
+        bitrate=MP3EncoderBitrate.Kbps_160, mode=MP3EncoderMode.ABR
+    )
+    encoder_abr(pcm, out_abr)
+    assert out_abr.exists()
+
+    # 3. VBR
+    out_vbr = tmp_path / "test_vbr.mp3"
+    encoder_vbr = MP3Encoder(
+        quality=MP3EncoderQualityLevel.Quality_2, mode=MP3EncoderMode.VBR
+    )
+    encoder_vbr(pcm, out_vbr)
+    assert out_vbr.exists()
+
+
+def test_encode_aac(tmp_path: Path) -> None:
+    """Test actual encoding of PCM data to AAC/M4A files."""
+    sample_path = Path("samples/sample.mp3")
+    pcm = decode(sample_path)
+
+    # 1. CBR (.m4a)
+    out_cbr = tmp_path / "test_cbr.m4a"
+    encoder_cbr = AACEncoder(
+        bitrate=AACEncoderBitrate.Kbps_128, mode=AACEncoderMode.CBR
+    )
+    encoder_cbr(pcm, out_cbr)
+    assert out_cbr.exists()
+    assert out_cbr.stat().st_size > 0
+    info_cbr = get_audio_info(out_cbr)
+    assert info_cbr.channels == 1
+    assert info_cbr.sample_rate == 44100
+
+    # 2. VBR (.aac)
+    out_vbr = tmp_path / "test_vbr.aac"
+    encoder_vbr = AACEncoder(
+        quality=AACEncoderQualityLevel.Quality_5, mode=AACEncoderMode.VBR
+    )
+    encoder_vbr(pcm, out_vbr)
+    assert out_vbr.exists()
+
+
+def test_encode_aiff(tmp_path: Path) -> None:
+    """Test actual encoding of PCM data to AIFF files."""
+    sample_path = Path("samples/sample.mp3")
+    pcm = decode(sample_path)
+
+    # 1. S16BE (.aiff)
+    out_s16 = tmp_path / "test_s16.aiff"
+    encoder_s16 = AIFFEncoder(codec=PCMCodec.PCM_S16BE)
+    encoder_s16(pcm, out_s16)
+    assert out_s16.exists()
+    assert out_s16.stat().st_size > 0
+    info_s16 = get_audio_info(out_s16)
+    assert info_s16.channels == 1
+    assert info_s16.sample_rate == 44100
+
+    # 2. S24BE (.aif)
+    out_s24 = tmp_path / "test_s24.aif"
+    encoder_s24 = AIFFEncoder(codec=PCMCodec.PCM_S24BE)
+    encoder_s24(pcm, out_s24)
+    assert out_s24.exists()
+
+
+def test_pcm_structure_and_validation() -> None:
+    """Test PCM dataclass creation and validation."""
+    valid_pcm = PCM(
+        data=b"\x00" * 100,
+        format=PCMFormat.F32LE,
+        sample_rate=PCMSampleRate.RATE_44K,
+        channels=PCMChannels.STEREO,
+    )
+    assert valid_pcm.format == PCMFormat.F32LE
+    assert valid_pcm.sample_rate == PCMSampleRate.RATE_44K
+    assert valid_pcm.channels == PCMChannels.STEREO
+
+    # Test bytearray conversion to bytes
+    ba_pcm = PCM(
+        data=bytearray(b"\x00" * 100),
+        format=PCMFormat.S16LE,
+        sample_rate=PCMSampleRate.RATE_48K,
+        channels=PCMChannels.MONO,
+    )
+    assert isinstance(ba_pcm.data, bytes)
+
+    # Invalid data type
+    with pytest.raises(TypeError, match="data must be bytes"):
+        _ = PCM(
+            data=cast(Any, "not-bytes"),
+            format=PCMFormat.F32LE,
+            sample_rate=PCMSampleRate.RATE_44K,
+            channels=PCMChannels.STEREO,
+        )
+
+    # Invalid format type
+    with pytest.raises(TypeError, match="format must be an instance of PCMFormat"):
+        _ = PCM(
+            data=b"\x00",
+            format=cast(Any, "f32le"),
+            sample_rate=PCMSampleRate.RATE_44K,
+            channels=PCMChannels.STEREO,
+        )
+
+    # Invalid sample rate type
+    with pytest.raises(
+        TypeError, match="sample_rate must be an instance of PCMSampleRate"
+    ):
+        _ = PCM(
+            data=b"\x00",
+            format=PCMFormat.F32LE,
+            sample_rate=cast(Any, 44100),
+            channels=PCMChannels.STEREO,
+        )
+
+    # Invalid channels type
+    with pytest.raises(TypeError, match="channels must be an instance of PCMChannels"):
+        _ = PCM(
+            data=b"\x00",
+            format=PCMFormat.F32LE,
+            sample_rate=PCMSampleRate.RATE_44K,
+            channels=cast(Any, 2),
+        )
+
+    # Test PCMCodec helper property
+    assert PCMCodec.PCM_F32LE.pcm_format == PCMFormat.F32LE
+    assert PCMCodec.PCM_S16BE.pcm_format == PCMFormat.S16BE
 
 
 def test_invalid_inputs_and_error_handling(tmp_path: Path) -> None:
-    """Test exception handling for invalid inputs across encoder, decoder, and ffprobe."""
+    """Test exception handling for invalid inputs."""
     encoder = MP3Encoder()
-    dummy_pcm = b"\x00" * 1024
+    valid_pcm = PCM(
+        data=b"\x00" * 1024,
+        format=PCMFormat.F32LE,
+        sample_rate=PCMSampleRate.RATE_44K,
+        channels=PCMChannels.STEREO,
+    )
 
-    # 1. Invalid pcm_data type
+    # 1. Invalid pcm parameter type to encoder
     with pytest.raises(TypeError, match="Invalid PCM data type"):
         encoder(
-            "not-bytes",  # type: ignore
-            None,  # type: ignore
-            None,  # type: ignore
-            None,  # type: ignore
+            cast(Any, "not-PCM"),
             tmp_path / "out.mp3",
         )
 
-    # 2. Invalid output file extension
-    from python_ffmpeg_audio_io.pcm import PCMChannels, PCMFormat, PCMSampleRate
+    # 2. Invalid output file path type
+    with pytest.raises(TypeError, match="output_path must be a str or PathLike"):
+        encoder(valid_pcm, cast(Any, 12345))
 
-    with pytest.raises(ValueError, match="Recommended extension"):
+    # 3. Invalid overwrite parameter type
+    with pytest.raises(TypeError, match="overwrite must be a bool"):
+        encoder(valid_pcm, tmp_path / "out.mp3", overwrite=cast(Any, "yes"))
+
+    # 4. Invalid output file extension
+    with pytest.raises(ValueError, match="Unsupported output file extension"):
         encoder(
-            dummy_pcm,
-            PCMFormat.F32LE,
-            PCMSampleRate.RATE_44K,
-            PCMChannels.STEREO,
+            valid_pcm,
             tmp_path / "out.txt",
         )
 
-    # 3. File already exists and overwrite=False
+    # 5. File already exists and overwrite=False
     out_file = tmp_path / "existing.mp3"
-    out_file.write_bytes(b"dummy")
-    with pytest.raises(ValueError, match="Output file already exists"):
+    _ = out_file.write_bytes(b"dummy")
+    with pytest.raises(FileWriteError, match="Output file already exists"):
         encoder(
-            dummy_pcm,
-            PCMFormat.F32LE,
-            PCMSampleRate.RATE_44K,
-            PCMChannels.STEREO,
+            valid_pcm,
             out_file,
             overwrite=False,
         )
 
-    # 4. Decoder with non-existent file
-    non_existent = tmp_path / "does_not_exist.mp3"
-    with pytest.raises(FileNotFoundError, match="Audio file not found"):
-        decode_to_PCM_F32LE_with_ffmpeg(non_existent)
+    # 6. File already exists and overwrite=True succeeds
+    encoder(valid_pcm, out_file, overwrite=True)
+    assert out_file.exists()
 
-    # 5. FFprobe with non-existent file
-    with pytest.raises(FileNotFoundError, match="Audio file not found"):
-        get_audio_info_from_ffprobe(non_existent)
+    # 7. Decoder with non-existent file
+    non_existent = tmp_path / "does_not_exist.mp3"
+    with pytest.raises(FileReadError, match="Audio file not found"):
+        _ = decode(non_existent)
+
+    # 8. Decoder with invalid path type
+    with pytest.raises(TypeError, match="path must be a str or PathLike"):
+        _ = decode(cast(Any, None))
+
+    # 9. Decoder with invalid pcm_codec type
+    with pytest.raises(TypeError, match="pcm_codec must be an instance of PCMCodec"):
+        _ = decode(Path("samples/sample.mp3"), pcm_codec=cast(Any, "pcm_f32le"))
+
+    # 10. FFprobe with non-existent file
+    with pytest.raises(FileReadError, match="Audio file not found"):
+        _ = get_audio_info(non_existent)
+
+    # 11. FFprobe with invalid path type
+    with pytest.raises(TypeError, match="file_path must be a str or PathLike"):
+        _ = get_audio_info(cast(Any, None))
+
+    # 12. run_ffprobe with invalid log_level type
+    with pytest.raises(
+        TypeError, match="log_level must be an instance of FFprobeLogLevel"
+    ):
+        _ = run_ffprobe(Path("samples/sample.mp3"), log_level=cast(Any, "error"))

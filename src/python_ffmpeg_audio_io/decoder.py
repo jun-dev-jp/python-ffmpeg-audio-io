@@ -1,44 +1,54 @@
-"""Audio decoder module using ffmpeg and ffprobe."""
+"""Audio decoder module using FFmpeg and FFprobe."""
 
 from __future__ import annotations
 
 import subprocess
+from os import R_OK, PathLike, access
 from pathlib import Path
 
-from .exceptions import FFmpegError, FFmpegNotFoundError
-from .ffprobe import get_audio_info_from_ffprobe
-from .pcm import PCMChannels, PCMCodec, PCMFormat, PCMSampleRate
-
-PathLike = str | Path
+from .exceptions import FFmpegError, FFmpegNotFoundError, FileReadError
+from .ffprobe import get_audio_info
+from .pcm import PCM, PCMChannels, PCMCodec, PCMSampleRate
 
 
-def decode_to_PCM_F32LE_with_ffmpeg(
-    path: PathLike,
-) -> tuple[bytes, PCMSampleRate, PCMChannels]:
-    """Decode audio data from a file path to PCM F32LE using ffmpeg.
+def decode(
+    path: str | PathLike[str],
+    pcm_codec: PCMCodec = PCMCodec.PCM_F32LE,
+) -> PCM:
+    """Decode an audio file to uncompressed raw PCM data using FFmpeg.
 
     Args:
-        path: Path to the audio file.
+        path: Path to the input audio file.
+        pcm_codec: The PCM codec to use for decoding (default: PCM_F32LE).
 
     Returns:
-        tuple[bytes, PCMSampleRate, PCMChannels]: The decoded PCM data, sample rate, and channels.
+        PCM: A dataclass instance containing the decoded PCM raw bytes and metadata.
 
     Raises:
-        FileNotFoundError: If the audio file does not exist.
-        FFmpegError: If ffprobe or ffmpeg fails to run or output is invalid.
-        PyFFmpegAudioIOError: If no audio stream is found or attributes are invalid.
+        TypeError: If arguments are of incorrect type.
+        FileReadError: If the audio file does not exist or is unreadable.
+        FFmpegNotFoundError: If FFmpeg or FFprobe executable is not found in PATH.
+        FFmpegError: If decoding fails or FFmpeg returns an error.
+        PyFFmpegAudioIOError: If metadata parsing fails.
     """
+    if not isinstance(path, (str, PathLike)):
+        raise TypeError(f"path must be a str or PathLike, got {type(path).__name__}")
+    if not isinstance(pcm_codec, PCMCodec):
+        t_name = type(pcm_codec).__name__
+        raise TypeError(f"pcm_codec must be an instance of PCMCodec, got {t_name}")
+
     audio_path = Path(path)
     if not audio_path.exists():
-        raise FileNotFoundError(f"Audio file not found: {audio_path}")
+        raise FileReadError(f"Audio file not found: {audio_path}")
+    if not audio_path.is_file():
+        raise FileReadError(f"Audio file is not a regular file: {audio_path}")
+    if not access(audio_path, R_OK):
+        raise FileReadError(f"Audio file is not readable: {audio_path}")
 
-    audio_info = get_audio_info_from_ffprobe(audio_path)
+    audio_info = get_audio_info(audio_path)
     pcm_channels = PCMChannels(audio_info.channels)
     pcm_sample_rate = PCMSampleRate(audio_info.sample_rate)
-
-    pcm_codec = PCMCodec.PCM_F32LE
-    # Extract PCM format from codec enum value (e.g., "pcm_f32le" -> "f32le")
-    sample_format = PCMFormat(pcm_codec.value.split("_")[1].lower())
+    sample_format = pcm_codec.pcm_format
 
     cmd = [
         "ffmpeg",
@@ -58,26 +68,24 @@ def decode_to_PCM_F32LE_with_ffmpeg(
     ]
 
     try:
-        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        stdout, stderr = process.communicate()
-        if process.returncode != 0:
-            err_msg = stderr.decode("utf-8", errors="ignore").strip()
-            raise FFmpegError(
-                f"ffmpeg failed to decode {audio_path}: {err_msg}",
-                stderr=err_msg,
-            )
-        return stdout, pcm_sample_rate, pcm_channels
+        result = subprocess.run(cmd, capture_output=True, check=True)
+        return PCM(
+            data=result.stdout,
+            format=sample_format,
+            sample_rate=pcm_sample_rate,
+            channels=pcm_channels,
+        )
     except OSError as e:
-        if e.errno == 2:  # No such file or directory
+        if e.errno == 2:
             raise FFmpegNotFoundError(
-                "ffmpeg executable not found. Please ensure FFmpeg is installed and available in your PATH."
+                "ffmpeg executable not found. Please ensure FFmpeg is in PATH."
             ) from e
         raise FFmpegError(f"Failed to start ffmpeg process: {e}") from e
     except subprocess.CalledProcessError as e:
         err_msg = (
             e.stderr.decode("utf-8", errors="ignore").strip()
-            if isinstance(e.stderr, bytes)
-            else str(e.stderr)
+            if isinstance(e.stderr, (bytes, bytearray))
+            else str(e.stderr or "")
         )
         raise FFmpegError(
             f"ffmpeg failed to decode {audio_path}: {err_msg}",

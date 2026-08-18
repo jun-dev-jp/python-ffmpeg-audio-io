@@ -1,10 +1,14 @@
-"""Example script demonstrating usage of run_ffprobe and get_audio_info_from_ffprobe with samples/sample.mp3."""
+"""Example script demonstrating usage of run_ffprobe and get_audio_info."""
 
 from pathlib import Path
 
-from python_ffmpeg_audio_io.exceptions import FFmpegError, PyFFmpegAudioIOError
+from python_ffmpeg_audio_io.exceptions import (
+    FFmpegError,
+    FileReadError,
+    PyFFmpegAudioIOError,
+)
 from python_ffmpeg_audio_io.ffprobe import (
-    get_audio_info_from_ffprobe,
+    get_audio_info,
     run_ffprobe,
 )
 
@@ -24,12 +28,12 @@ def main() -> None:
     try:
         raw_data = run_ffprobe(sample_path)
         print(json.dumps(raw_data, indent=2, ensure_ascii=False))
-    except (FileNotFoundError, FFmpegError) as e:
+    except (FileReadError, FFmpegError) as e:
         print(f"Error running run_ffprobe: {e}")
 
-    print("\n--- 2. get_audio_info_from_ffprobe output (AudioInfo dataclass) ---")
+    print("\n--- 2. get_audio_info output (AudioInfo dataclass) ---")
     try:
-        info = get_audio_info_from_ffprobe(sample_path)
+        info = get_audio_info(sample_path)
         print(f"  - Sample Rate: {info.sample_rate} Hz")
         print(f"  - Channels: {info.channels}")
         print(f"  - Duration: {info.duration:.2f} s")
@@ -38,7 +42,7 @@ def main() -> None:
         print(f"  - Format Long Name: {info.format_long_name}")
         print(f"  - Size: {info.size} bytes")
         print(f"  - Bit Rate: {info.bit_rate} bps")
-    except (FileNotFoundError, FFmpegError, PyFFmpegAudioIOError) as e:
+    except (FileReadError, FFmpegError, PyFFmpegAudioIOError) as e:
         print(f"Error getting audio info: {e}")
 
     print("\nDone!")
