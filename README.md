@@ -19,10 +19,10 @@ A lightweight, robust Python audio I/O library powered by FFmpeg, designed witho
 
 ```bash
 # Using uv
-uv add git+https://github.com/junpiyo/python-ffmpeg-audio-io.git
+uv add git+https://github.com/jun-dev-jp/python-ffmpeg-audio-io.git
 
 # Using pip
-pip install git+https://github.com/junpiyo/python-ffmpeg-audio-io.git
+pip install git+https://github.com/jun-dev-jp/python-ffmpeg-audio-io.git
 ```
 
 ## Quick Start
