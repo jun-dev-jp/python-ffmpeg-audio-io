@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 from logging import getLogger
+from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
@@ -39,6 +40,22 @@ class PCMFormat(Enum):
     U64LE = "u64le"
     F64BE = "f64be"
     F64LE = "f64le"
+
+    @property
+    def bytes_per_sample(self) -> int:
+        """Return the number of bytes per audio sample for this format."""
+        val = self.value
+        if val in ("u8", "s8"):
+            return 1
+        if val.startswith(("u16", "s16")):
+            return 2
+        if val.startswith(("u24", "s24")):
+            return 3
+        if val.startswith(("u32", "s32", "f32")):
+            return 4
+        if val.startswith(("u64", "s64", "f64")):
+            return 8
+        raise PCMFormatError(f"Unknown bytes per sample for format: {self.value}")
 
 
 class PCMCodec(Enum):
@@ -136,9 +153,19 @@ class PCM:
                 f"channels must be an instance of PCMChannels, got {t_name}"
             )
 
+        # Validate that total data byte length is aligned to whole audio frames
+        frame_size = self.format.bytes_per_sample * self.channels.value
+        if len(self.data) % frame_size != 0:
+            msg = (
+                f"PCM data length ({len(self.data)} bytes) is not aligned to frame "
+                f"size ({frame_size} bytes = {self.format.bytes_per_sample} "
+                f"bytes/sample * {self.channels.value} channels)"
+            )
+            raise ValueError(msg)
+
     @staticmethod
     def from_numpy(
-        arr: NDArray[np.floating | np.integer],
+        arr: NDArray[np.floating[Any] | np.integer[Any]],
         sample_rate: PCMSampleRate,
         channels: PCMChannels,
     ) -> PCM:
@@ -153,10 +180,13 @@ class PCM:
             The PCM object initialized from the NumPy array.
 
         Raises:
-            TypeError: If sample_rate or channels has an invalid type.
+            TypeError: If arr, sample_rate, or channels has an invalid type.
             ValueError: If arr shape or dimension is invalid for channels.
             PCMFormatError: If the NumPy array dtype is not supported.
         """
+        if not isinstance(arr, np.ndarray):
+            t_name = type(arr).__name__
+            raise TypeError(f"arr must be a numpy.ndarray, got {t_name}")
         if not isinstance(sample_rate, PCMSampleRate):
             t_name = type(sample_rate).__name__
             raise TypeError(
@@ -257,7 +287,7 @@ class PCM:
         elif format_val == "s8":
             return np.frombuffer(self.data, dtype=np.int8).reshape(-1, channels)
         elif format_val.startswith(("u24", "s24")):
-            logger.error(f"Unsupported PCM format: {format_val}")
+            logger.error("Unsupported PCM format: %s", format_val)
             raise PCMFormatError(f"Unsupported PCM format: {format_val}")
         elif format_val.startswith("u16"):
             type_code = "u2"
@@ -276,7 +306,7 @@ class PCM:
         elif format_val.startswith("f64"):
             type_code = "f8"
         else:
-            logger.error(f"Unsupported PCM format: {format_val}")
+            logger.error("Unsupported PCM format: %s", format_val)
             raise PCMFormatError(f"Unsupported PCM format: {format_val}")
 
         if format_val.endswith("le"):
@@ -291,5 +321,14 @@ class PCM:
                 .reshape(-1, channels)
             )
         else:
-            logger.error(f"Unsupported PCM format: {format_val}")
+            logger.error("Unsupported PCM format: %s", format_val)
             raise PCMFormatError(f"Unsupported PCM format: {format_val}")
+
+
+__all__ = [
+    "PCM",
+    "PCMChannels",
+    "PCMCodec",
+    "PCMFormat",
+    "PCMSampleRate",
+]

@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from os import PathLike
 from pathlib import Path
 from typing import Any, cast
+from unittest.mock import patch
 
 import pytest
 
@@ -15,6 +17,7 @@ from python_ffmpeg_audio_io.encoder.aac import (
     AACEncoderQualityLevel,
 )
 from python_ffmpeg_audio_io.encoder.aiff import AIFFEncoder
+from python_ffmpeg_audio_io.encoder.base import BaseAudioEncoder
 from python_ffmpeg_audio_io.encoder.mp3 import (
     MP3Encoder,
     MP3EncoderBitrate,
@@ -24,6 +27,7 @@ from python_ffmpeg_audio_io.encoder.mp3 import (
 from python_ffmpeg_audio_io.exceptions import (
     FileReadError,
     FileWriteError,
+    PyFFmpegAudioIOError,
 )
 from python_ffmpeg_audio_io.ffprobe import (
     AudioInfo,
@@ -82,6 +86,52 @@ def test_decoder_on_sample() -> None:
     assert len(pcm_s16.data) > 0
 
 
+def test_decoder_unsupported_metadata(tmp_path: Path) -> None:
+    """Verify decoder raises PyFFmpegAudioIOError on unsupported
+    channel or sample rate.
+    """
+    sample_path = Path("samples/sample.mp3")
+
+    fake_info_bad_channels = AudioInfo(
+        sample_rate=44100,
+        sample_fmt="fltp",
+        channels=99,
+        duration=1.0,
+        codec_name="mp3",
+        format_name="mp3",
+        format_long_name="MP3",
+        size=1000,
+        bit_rate=128000,
+    )
+    with patch(
+        "python_ffmpeg_audio_io.decoder.get_audio_info",
+        return_value=fake_info_bad_channels,
+    ):
+        with pytest.raises(
+            PyFFmpegAudioIOError, match="Unsupported channel count '99'"
+        ):
+            _ = decode(sample_path)
+
+    fake_info_bad_rate = AudioInfo(
+        sample_rate=12345,
+        sample_fmt="fltp",
+        channels=2,
+        duration=1.0,
+        codec_name="mp3",
+        format_name="mp3",
+        format_long_name="MP3",
+        size=1000,
+        bit_rate=128000,
+    )
+    with patch(
+        "python_ffmpeg_audio_io.decoder.get_audio_info", return_value=fake_info_bad_rate
+    ):
+        with pytest.raises(
+            PyFFmpegAudioIOError, match="Unsupported sample rate '12345'"
+        ):
+            _ = decode(sample_path)
+
+
 def test_encoders_instantiation_and_properties() -> None:
     """Test instantiation and property getters/setters for all encoders."""
     # 1. AAC Encoder
@@ -102,6 +152,12 @@ def test_encoders_instantiation_and_properties() -> None:
     aac_encoder.quality = AACEncoderQualityLevel.Quality_5
     assert aac_encoder.quality == AACEncoderQualityLevel.Quality_5
 
+    with pytest.raises(TypeError):
+        _ = AACEncoder(bitrate=cast(Any, "invalid"))
+    with pytest.raises(TypeError):
+        _ = AACEncoder(mode=cast(Any, "invalid"))
+    with pytest.raises(TypeError):
+        _ = AACEncoder(quality=cast(Any, "invalid"))
     with pytest.raises(TypeError):
         aac_encoder.bitrate = cast(Any, "invalid")
     with pytest.raises(TypeError):
@@ -128,6 +184,12 @@ def test_encoders_instantiation_and_properties() -> None:
     assert mp3_encoder.quality == MP3EncoderQualityLevel.Quality_0
 
     with pytest.raises(TypeError):
+        _ = MP3Encoder(bitrate=cast(Any, "invalid"))
+    with pytest.raises(TypeError):
+        _ = MP3Encoder(mode=cast(Any, "invalid"))
+    with pytest.raises(TypeError):
+        _ = MP3Encoder(quality=cast(Any, "invalid"))
+    with pytest.raises(TypeError):
         mp3_encoder.bitrate = cast(Any, "invalid")
     with pytest.raises(TypeError):
         mp3_encoder.mode = cast(Any, "invalid")
@@ -140,6 +202,8 @@ def test_encoders_instantiation_and_properties() -> None:
     aiff_encoder.codec = PCMCodec.PCM_S24BE
     assert aiff_encoder.codec == PCMCodec.PCM_S24BE
 
+    with pytest.raises(TypeError):
+        _ = AIFFEncoder(codec=cast(Any, "invalid"))
     with pytest.raises(TypeError):
         aiff_encoder.codec = cast(Any, "invalid")
 
@@ -226,70 +290,6 @@ def test_encode_aiff(tmp_path: Path) -> None:
     assert out_s24.exists()
 
 
-def test_pcm_structure_and_validation() -> None:
-    """Test PCM dataclass creation and validation."""
-    valid_pcm = PCM(
-        data=b"\x00" * 100,
-        format=PCMFormat.F32LE,
-        sample_rate=PCMSampleRate.RATE_44K,
-        channels=PCMChannels.STEREO,
-    )
-    assert valid_pcm.format == PCMFormat.F32LE
-    assert valid_pcm.sample_rate == PCMSampleRate.RATE_44K
-    assert valid_pcm.channels == PCMChannels.STEREO
-
-    # Test bytearray conversion to bytes
-    ba_pcm = PCM(
-        data=bytearray(b"\x00" * 100),
-        format=PCMFormat.S16LE,
-        sample_rate=PCMSampleRate.RATE_48K,
-        channels=PCMChannels.MONO,
-    )
-    assert isinstance(ba_pcm.data, bytes)
-
-    # Invalid data type
-    with pytest.raises(TypeError, match="data must be bytes"):
-        _ = PCM(
-            data=cast(Any, "not-bytes"),
-            format=PCMFormat.F32LE,
-            sample_rate=PCMSampleRate.RATE_44K,
-            channels=PCMChannels.STEREO,
-        )
-
-    # Invalid format type
-    with pytest.raises(TypeError, match="format must be an instance of PCMFormat"):
-        _ = PCM(
-            data=b"\x00",
-            format=cast(Any, "f32le"),
-            sample_rate=PCMSampleRate.RATE_44K,
-            channels=PCMChannels.STEREO,
-        )
-
-    # Invalid sample rate type
-    with pytest.raises(
-        TypeError, match="sample_rate must be an instance of PCMSampleRate"
-    ):
-        _ = PCM(
-            data=b"\x00",
-            format=PCMFormat.F32LE,
-            sample_rate=cast(Any, 44100),
-            channels=PCMChannels.STEREO,
-        )
-
-    # Invalid channels type
-    with pytest.raises(TypeError, match="channels must be an instance of PCMChannels"):
-        _ = PCM(
-            data=b"\x00",
-            format=PCMFormat.F32LE,
-            sample_rate=PCMSampleRate.RATE_44K,
-            channels=cast(Any, 2),
-        )
-
-    # Test PCMCodec helper property
-    assert PCMCodec.PCM_F32LE.pcm_format == PCMFormat.F32LE
-    assert PCMCodec.PCM_S16BE.pcm_format == PCMFormat.S16BE
-
-
 def test_invalid_inputs_and_error_handling(tmp_path: Path) -> None:
     """Test exception handling for invalid inputs."""
     encoder = MP3Encoder()
@@ -362,3 +362,38 @@ def test_invalid_inputs_and_error_handling(tmp_path: Path) -> None:
         TypeError, match="log_level must be an instance of FFprobeLogLevel"
     ):
         _ = run_ffprobe(Path("samples/sample.mp3"), log_level=cast(Any, "error"))
+
+
+def test_base_audio_encoder_direct_checks() -> None:
+    """Test BaseAudioEncoder input checking methods directly."""
+
+    class DummyEncoder(BaseAudioEncoder):
+        def __call__(
+            self,
+            pcm: PCM,
+            output_path: str | PathLike[str],
+            overwrite: bool = False,
+        ) -> None:
+            pass
+
+    dummy = DummyEncoder()
+    # Invalid supported_formats type
+    with pytest.raises(TypeError, match="supported_formats must be a Sequence of str"):
+        dummy._check_output_path(
+            "test.mp3", supported_formats=cast(Any, 123), overwrite=False
+        )
+
+    # Invalid codec_args type
+    valid_pcm = PCM(
+        data=b"\x00" * 4,
+        format=PCMFormat.S16LE,
+        sample_rate=PCMSampleRate.RATE_44K,
+        channels=PCMChannels.STEREO,
+    )
+    with pytest.raises(TypeError, match="codec_args must be a Sequence of str"):
+        dummy._run_ffmpeg_encode(
+            codec_args=cast(Any, 123),
+            pcm=valid_pcm,
+            output_path=Path("out.mp3"),
+            overwrite=False,
+        )

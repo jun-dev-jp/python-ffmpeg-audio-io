@@ -31,6 +31,42 @@ class AudioInfo:
     size: int
     bit_rate: int
 
+    def __post_init__(self) -> None:
+        """Validate fields upon initialization."""
+        if not isinstance(self.sample_rate, int) or self.sample_rate <= 0:
+            raise ValueError(
+                f"sample_rate must be a positive integer, got {self.sample_rate}"
+            )
+        if not isinstance(self.channels, int) or self.channels <= 0:
+            raise ValueError(
+                f"channels must be a positive integer, got {self.channels}"
+            )
+        if not isinstance(self.duration, (int, float)) or self.duration < 0:
+            raise ValueError(
+                f"duration must be a non-negative float, got {self.duration}"
+            )
+        if not isinstance(self.sample_fmt, str):
+            raise TypeError(
+                f"sample_fmt must be a str, got {type(self.sample_fmt).__name__}"
+            )
+        if not isinstance(self.codec_name, str):
+            raise TypeError(
+                f"codec_name must be a str, got {type(self.codec_name).__name__}"
+            )
+        if not isinstance(self.format_name, str):
+            raise TypeError(
+                f"format_name must be a str, got {type(self.format_name).__name__}"
+            )
+        if not isinstance(self.format_long_name, str):
+            t_name = type(self.format_long_name).__name__
+            raise TypeError(f"format_long_name must be a str, got {t_name}")
+        if not isinstance(self.size, int) or self.size < 0:
+            raise ValueError(f"size must be a non-negative integer, got {self.size}")
+        if not isinstance(self.bit_rate, int) or self.bit_rate < 0:
+            raise ValueError(
+                f"bit_rate must be a non-negative integer, got {self.bit_rate}"
+            )
+
 
 class FFprobeLogLevel(Enum):
     """FFprobe log level options."""
@@ -200,3 +236,11 @@ def run_ffprobe(
         return parsed_data  # type: ignore[return-value]
     except json.JSONDecodeError as e:
         raise FFmpegError(f"Invalid FFprobe JSON output for {path}: {e}") from e
+
+
+__all__ = [
+    "AudioInfo",
+    "FFprobeLogLevel",
+    "get_audio_info",
+    "run_ffprobe",
+]

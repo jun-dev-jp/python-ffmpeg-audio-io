@@ -35,10 +35,19 @@ def test_pcm_initialization_and_validation() -> None:
         data=bytearray(b"\x01\x02"),
         format=PCMFormat.U8,
         sample_rate=PCMSampleRate.RATE_48K,
-        channels=PCMChannels.MONO,
+        channels=PCMChannels.STEREO,
     )
     assert isinstance(pcm_ba.data, bytes)
     assert pcm_ba.data == b"\x01\x02"
+
+    # Frame alignment error (3 bytes for 2ch 16-bit PCM: 4 bytes/frame required)
+    with pytest.raises(ValueError, match="not aligned to frame size"):
+        _ = PCM(
+            data=b"\x01\x02\x03",
+            format=PCMFormat.S16LE,
+            sample_rate=PCMSampleRate.RATE_44K,
+            channels=PCMChannels.STEREO,
+        )
 
     # TypeError on invalid data type
     with pytest.raises(TypeError, match="data must be bytes"):
@@ -52,7 +61,7 @@ def test_pcm_initialization_and_validation() -> None:
     # TypeError on invalid format type
     with pytest.raises(TypeError, match="format must be an instance of PCMFormat"):
         _ = PCM(
-            data=b"\x00",
+            data=b"\x00\x00\x00\x00",
             format=cast(Any, "s16le"),
             sample_rate=PCMSampleRate.RATE_44K,
             channels=PCMChannels.STEREO,
@@ -63,7 +72,7 @@ def test_pcm_initialization_and_validation() -> None:
         TypeError, match="sample_rate must be an instance of PCMSampleRate"
     ):
         _ = PCM(
-            data=b"\x00",
+            data=b"\x00\x00\x00\x00",
             format=PCMFormat.S16LE,
             sample_rate=cast(Any, 44100),
             channels=PCMChannels.STEREO,
@@ -72,11 +81,25 @@ def test_pcm_initialization_and_validation() -> None:
     # TypeError on invalid channels type
     with pytest.raises(TypeError, match="channels must be an instance of PCMChannels"):
         _ = PCM(
-            data=b"\x00",
+            data=b"\x00\x00\x00\x00",
             format=PCMFormat.S16LE,
             sample_rate=PCMSampleRate.RATE_44K,
             channels=cast(Any, 2),
         )
+
+
+def test_pcm_format_bytes_per_sample() -> None:
+    """Test bytes_per_sample property on all PCMFormat entries."""
+    assert PCMFormat.U8.bytes_per_sample == 1
+    assert PCMFormat.S8.bytes_per_sample == 1
+    assert PCMFormat.S16LE.bytes_per_sample == 2
+    assert PCMFormat.U16BE.bytes_per_sample == 2
+    assert PCMFormat.S24LE.bytes_per_sample == 3
+    assert PCMFormat.U24BE.bytes_per_sample == 3
+    assert PCMFormat.S32LE.bytes_per_sample == 4
+    assert PCMFormat.F32LE.bytes_per_sample == 4
+    assert PCMFormat.S64LE.bytes_per_sample == 8
+    assert PCMFormat.F64BE.bytes_per_sample == 8
 
 
 def test_pcm_codec_format_property() -> None:
@@ -167,6 +190,14 @@ def test_from_numpy_non_contiguous_and_big_endian() -> None:
 def test_from_numpy_validation_errors() -> None:
     """Test validation errors in from_numpy."""
     valid_arr = np.zeros((10, 2), dtype=np.float32)
+
+    # Invalid arr type (e.g. list instead of ndarray)
+    with pytest.raises(TypeError, match=r"arr must be a numpy\.ndarray"):
+        _ = PCM.from_numpy(
+            cast(Any, [[1.0, 2.0], [3.0, 4.0]]),
+            sample_rate=PCMSampleRate.RATE_44K,
+            channels=PCMChannels.STEREO,
+        )
 
     # Invalid sample_rate type
     with pytest.raises(

@@ -67,3 +67,9 @@ class AIFFEncoder(BaseAudioEncoder):
             t_name = type(value).__name__
             raise TypeError(f"codec must be an instance of PCMCodec, got {t_name}")
         self._codec = value
+
+
+__all__ = [
+    "SUPPORTED_AIFF_FORMAT_NAMES",
+    "AIFFEncoder",
+]

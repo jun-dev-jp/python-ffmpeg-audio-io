@@ -31,3 +31,13 @@ class FFmpegNotFoundError(PyFFmpegAudioIOError):
 
 class PCMFormatError(PyFFmpegAudioIOError):
     """Raised when the PCM format is not supported."""
+
+
+__all__ = [
+    "FFmpegError",
+    "FFmpegNotFoundError",
+    "FileReadError",
+    "FileWriteError",
+    "PCMFormatError",
+    "PyFFmpegAudioIOError",
+]

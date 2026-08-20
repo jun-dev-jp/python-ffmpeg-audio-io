@@ -151,3 +151,12 @@ class MP3Encoder(BaseAudioEncoder):
             t_name = type(value).__name__
             raise TypeError(f"mode must be MP3EncoderMode, got {t_name}")
         self._mode = value
+
+
+__all__ = [
+    "SUPPORTED_MP3_FORMAT_NAMES",
+    "MP3Encoder",
+    "MP3EncoderBitrate",
+    "MP3EncoderMode",
+    "MP3EncoderQualityLevel",
+]

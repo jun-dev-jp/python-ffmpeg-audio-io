@@ -147,3 +147,12 @@ class AACEncoder(BaseAudioEncoder):
             t_name = type(value).__name__
             raise TypeError(f"mode must be AACEncoderMode, got {t_name}")
         self._mode = value
+
+
+__all__ = [
+    "SUPPORTED_MP4_FORMAT_NAMES",
+    "AACEncoder",
+    "AACEncoderBitrate",
+    "AACEncoderMode",
+    "AACEncoderQualityLevel",
+]

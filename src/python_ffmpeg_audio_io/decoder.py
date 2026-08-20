@@ -6,7 +6,12 @@ import subprocess
 from os import R_OK, PathLike, access
 from pathlib import Path
 
-from .exceptions import FFmpegError, FFmpegNotFoundError, FileReadError
+from .exceptions import (
+    FFmpegError,
+    FFmpegNotFoundError,
+    FileReadError,
+    PyFFmpegAudioIOError,
+)
 from .ffprobe import get_audio_info
 from .pcm import PCM, PCMChannels, PCMCodec, PCMSampleRate
 
@@ -29,7 +34,8 @@ def decode(
         FileReadError: If the audio file does not exist or is unreadable.
         FFmpegNotFoundError: If FFmpeg or FFprobe executable is not found in PATH.
         FFmpegError: If decoding fails or FFmpeg returns an error.
-        PyFFmpegAudioIOError: If metadata parsing fails.
+        PyFFmpegAudioIOError: If metadata parsing fails or audio channels/sample rate
+            are not supported by PCMChannels / PCMSampleRate.
     """
     if not isinstance(path, (str, PathLike)):
         raise TypeError(f"path must be a str or PathLike, got {type(path).__name__}")
@@ -46,8 +52,25 @@ def decode(
         raise FileReadError(f"Audio file is not readable: {audio_path}")
 
     audio_info = get_audio_info(audio_path)
-    pcm_channels = PCMChannels(audio_info.channels)
-    pcm_sample_rate = PCMSampleRate(audio_info.sample_rate)
+
+    try:
+        pcm_channels = PCMChannels(audio_info.channels)
+    except ValueError as e:
+        msg = (
+            f"Unsupported channel count '{audio_info.channels}' "
+            f"in audio file: {audio_path}"
+        )
+        raise PyFFmpegAudioIOError(msg) from e
+
+    try:
+        pcm_sample_rate = PCMSampleRate(audio_info.sample_rate)
+    except ValueError as e:
+        msg = (
+            f"Unsupported sample rate '{audio_info.sample_rate}' "
+            f"in audio file: {audio_path}"
+        )
+        raise PyFFmpegAudioIOError(msg) from e
+
     sample_format = pcm_codec.pcm_format
 
     cmd = [
@@ -91,3 +114,6 @@ def decode(
             f"ffmpeg failed to decode {audio_path}: {err_msg}",
             stderr=err_msg,
         ) from e
+
+
+__all__ = ["decode"]

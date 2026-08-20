@@ -26,6 +26,7 @@ from .exceptions import (
     FFmpegNotFoundError,
     FileReadError,
     FileWriteError,
+    PCMFormatError,
     PyFFmpegAudioIOError,
 )
 from .ffprobe import (
@@ -63,6 +64,7 @@ __all__ = [
     "PCMChannels",
     "PCMCodec",
     "PCMFormat",
+    "PCMFormatError",
     "PCMSampleRate",
     "PyFFmpegAudioIOError",
     "decode",
