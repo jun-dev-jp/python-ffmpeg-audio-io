@@ -1,6 +1,6 @@
 [project]
 name = "python-ffmpeg-audio-io"
-version = "0.1.0"
+version = "0.2.0"
 description = "A lightweight, robust Python audio I/O library powered by FFmpeg without heavy third-party wrappers."
 readme = "README.md"
 requires-python = ">=3.13"

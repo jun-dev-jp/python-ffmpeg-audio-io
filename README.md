@@ -6,7 +6,7 @@ A lightweight, robust Python audio I/O library powered by FFmpeg, designed witho
 
 - **Direct FFmpeg/FFprobe Integration**: Uses the standard library `subprocess` and FFmpeg pipes for maximum performance, reliability, and minimal overhead.
 - **Unified Decoding API**: Decode diverse audio formats (MP3, AAC, AIFF, WAV, FLAC, etc.) into a structured `PCM` object with a single `decode()` function.
-- **Dedicated Audio Encoders**: High-level encoders for **MP3**, **AAC**, and **AIFF** supporting CBR, ABR, and VBR modes.
+- **Dedicated Audio Encoders**: High-level encoders for **MP3**, **AAC**, **AIFF**, **Opus**, and **FLAC** supporting configurable bitrates, compression levels, and modes.
 - **Strict Typing & Runtime Validation**: Fully type-hinted (PEP 561 `py.typed`) with runtime parameter validation.
 - **Robust Error Handling**: Captures FFmpeg `stderr` and maps failures to a structured hierarchy derived from `PyFFmpegAudioIOError`.
 
@@ -18,11 +18,11 @@ A lightweight, robust Python audio I/O library powered by FFmpeg, designed witho
 ## Installation
 
 ```bash
-# Using uv (HTTPS)
-uv add git+https://github.com/YOUR_USERNAME/python-ffmpeg-audio-io.git
+# Using uv
+uv add git+https://github.com/junpiyo/python-ffmpeg-audio-io.git
 
 # Using pip
-pip install git+https://github.com/YOUR_USERNAME/python-ffmpeg-audio-io.git
+pip install git+https://github.com/junpiyo/python-ffmpeg-audio-io.git
 ```
 
 ## Quick Start
@@ -106,6 +106,35 @@ from python_ffmpeg_audio_io import AIFFEncoder, PCMCodec
 # Encode to 16-bit or 24-bit big-endian PCM in AIFF container
 encoder_aiff = AIFFEncoder(codec=PCMCodec.PCM_S16BE)
 encoder_aiff(pcm, "output.aiff", overwrite=True)
+```
+
+### 6. Encode to Opus (`OpusEncoder`)
+
+```python
+from python_ffmpeg_audio_io import (
+    OpusEncoder,
+    OpusEncoderApplication,
+    OpusEncoderBitrate,
+    OpusEncoderMode,
+)
+
+# VBR (Variable Bitrate: default)
+encoder_opus = OpusEncoder(
+    bitrate=OpusEncoderBitrate.Kbps_128,
+    mode=OpusEncoderMode.VBR,
+    application=OpusEncoderApplication.AUDIO,
+)
+encoder_opus(pcm, "output.opus", overwrite=True)
+```
+
+### 7. Encode to FLAC (`FLACEncoder`)
+
+```python
+from python_ffmpeg_audio_io import FLACEncoder, FLACEncoderCompressionLevel
+
+# Lossless FLAC encoding with compression level 0 (fastest) ~ 12 (highest)
+encoder_flac = FLACEncoder(compression_level=FLACEncoderCompressionLevel.Level_5)
+encoder_flac(pcm, "output.flac", overwrite=True)
 ```
 
 ## Exception Hierarchy

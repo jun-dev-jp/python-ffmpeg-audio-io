@@ -18,11 +18,21 @@ from python_ffmpeg_audio_io.encoder.aac import (
 )
 from python_ffmpeg_audio_io.encoder.aiff import AIFFEncoder
 from python_ffmpeg_audio_io.encoder.base import BaseAudioEncoder
+from python_ffmpeg_audio_io.encoder.flac import (
+    FLACEncoder,
+    FLACEncoderCompressionLevel,
+)
 from python_ffmpeg_audio_io.encoder.mp3 import (
     MP3Encoder,
     MP3EncoderBitrate,
     MP3EncoderMode,
     MP3EncoderQualityLevel,
+)
+from python_ffmpeg_audio_io.encoder.opus import (
+    OpusEncoder,
+    OpusEncoderApplication,
+    OpusEncoderBitrate,
+    OpusEncoderMode,
 )
 from python_ffmpeg_audio_io.exceptions import (
     FileReadError,
@@ -207,6 +217,52 @@ def test_encoders_instantiation_and_properties() -> None:
     with pytest.raises(TypeError):
         aiff_encoder.codec = cast(Any, "invalid")
 
+    # 4. Opus Encoder
+    opus_encoder = OpusEncoder(
+        bitrate=OpusEncoderBitrate.Kbps_128,
+        mode=OpusEncoderMode.VBR,
+        application=OpusEncoderApplication.AUDIO,
+    )
+    assert opus_encoder.codec == "libopus"
+    assert opus_encoder.bitrate == OpusEncoderBitrate.Kbps_128
+    assert opus_encoder.mode == OpusEncoderMode.VBR
+    assert opus_encoder.application == OpusEncoderApplication.AUDIO
+
+    opus_encoder.bitrate = OpusEncoderBitrate.Kbps_256
+    assert opus_encoder.bitrate == OpusEncoderBitrate.Kbps_256
+    opus_encoder.mode = OpusEncoderMode.CBR
+    assert opus_encoder.mode == OpusEncoderMode.CBR
+    opus_encoder.application = OpusEncoderApplication.VOIP
+    assert opus_encoder.application == OpusEncoderApplication.VOIP
+
+    with pytest.raises(TypeError):
+        _ = OpusEncoder(bitrate=cast(Any, "invalid"))
+    with pytest.raises(TypeError):
+        _ = OpusEncoder(mode=cast(Any, "invalid"))
+    with pytest.raises(TypeError):
+        _ = OpusEncoder(application=cast(Any, "invalid"))
+    with pytest.raises(TypeError):
+        opus_encoder.bitrate = cast(Any, "invalid")
+    with pytest.raises(TypeError):
+        opus_encoder.mode = cast(Any, "invalid")
+    with pytest.raises(TypeError):
+        opus_encoder.application = cast(Any, "invalid")
+
+    # 5. FLAC Encoder
+    flac_encoder = FLACEncoder(
+        compression_level=FLACEncoderCompressionLevel.Level_5,
+    )
+    assert flac_encoder.codec == "flac"
+    assert flac_encoder.compression_level == FLACEncoderCompressionLevel.Level_5
+
+    flac_encoder.compression_level = FLACEncoderCompressionLevel.Level_8
+    assert flac_encoder.compression_level == FLACEncoderCompressionLevel.Level_8
+
+    with pytest.raises(TypeError):
+        _ = FLACEncoder(compression_level=cast(Any, "invalid"))
+    with pytest.raises(TypeError):
+        flac_encoder.compression_level = cast(Any, "invalid")
+
 
 def test_encode_mp3(tmp_path: Path) -> None:
     """Test actual encoding of PCM data to MP3 files with different modes."""
@@ -290,6 +346,91 @@ def test_encode_aiff(tmp_path: Path) -> None:
     assert out_s24.exists()
 
 
+def test_encode_opus(tmp_path: Path) -> None:
+    """Test actual encoding of PCM data to Opus files."""
+    sample_path = Path("samples/sample.mp3")
+    pcm = decode(sample_path)
+
+    # 1. VBR (.opus)
+    out_vbr = tmp_path / "test_vbr.opus"
+    encoder_vbr = OpusEncoder(
+        bitrate=OpusEncoderBitrate.Kbps_128,
+        mode=OpusEncoderMode.VBR,
+        application=OpusEncoderApplication.AUDIO,
+    )
+    encoder_vbr(pcm, out_vbr)
+    assert out_vbr.exists()
+    assert out_vbr.stat().st_size > 0
+    info_vbr = get_audio_info(out_vbr)
+    assert info_vbr.channels == 1
+    assert info_vbr.codec_name == "opus"
+
+    # Decode encoded opus back
+    decoded_opus = decode(out_vbr)
+    assert isinstance(decoded_opus, PCM)
+    assert len(decoded_opus.data) > 0
+
+    # 2. CBR (.ogg)
+    out_cbr = tmp_path / "test_cbr.ogg"
+    encoder_cbr = OpusEncoder(
+        bitrate=OpusEncoderBitrate.Kbps_64,
+        mode=OpusEncoderMode.CBR,
+        application=OpusEncoderApplication.VOIP,
+    )
+    encoder_cbr(pcm, out_cbr)
+    assert out_cbr.exists()
+
+    # 3. CVBR (.opus)
+    out_cvbr = tmp_path / "test_cvbr.opus"
+    encoder_cvbr = OpusEncoder(
+        bitrate=OpusEncoderBitrate.Kbps_192,
+        mode=OpusEncoderMode.CVBR,
+        application=OpusEncoderApplication.LOW_DELAY,
+    )
+    encoder_cvbr(pcm, out_cvbr)
+    assert out_cvbr.exists()
+
+
+def test_encode_flac(tmp_path: Path) -> None:
+    """Test actual encoding of PCM data to FLAC files."""
+    sample_path = Path("samples/sample.mp3")
+    pcm = decode(sample_path)
+
+    # 1. Compression level 5 (.flac)
+    out_flac = tmp_path / "test_level5.flac"
+    encoder_flac = FLACEncoder(
+        compression_level=FLACEncoderCompressionLevel.Level_5,
+    )
+    encoder_flac(pcm, out_flac)
+    assert out_flac.exists()
+    assert out_flac.stat().st_size > 0
+    info_flac = get_audio_info(out_flac)
+    assert info_flac.channels == 1
+    assert info_flac.sample_rate == 44100
+    assert info_flac.codec_name == "flac"
+
+    # Decode encoded flac back
+    decoded_flac = decode(out_flac)
+    assert isinstance(decoded_flac, PCM)
+    assert len(decoded_flac.data) > 0
+
+    # 2. Compression level 0 (.flac)
+    out_flac0 = tmp_path / "test_level0.flac"
+    encoder_flac0 = FLACEncoder(
+        compression_level=FLACEncoderCompressionLevel.Level_0,
+    )
+    encoder_flac0(pcm, out_flac0)
+    assert out_flac0.exists()
+
+    # 3. Compression level 8 (.flac)
+    out_flac8 = tmp_path / "test_level8.flac"
+    encoder_flac8 = FLACEncoder(
+        compression_level=FLACEncoderCompressionLevel.Level_8,
+    )
+    encoder_flac8(pcm, out_flac8)
+    assert out_flac8.exists()
+
+
 def test_invalid_inputs_and_error_handling(tmp_path: Path) -> None:
     """Test exception handling for invalid inputs."""
     encoder = MP3Encoder()
@@ -321,6 +462,16 @@ def test_invalid_inputs_and_error_handling(tmp_path: Path) -> None:
             valid_pcm,
             tmp_path / "out.txt",
         )
+
+    # 4b. Invalid extension for OpusEncoder
+    opus_enc = OpusEncoder()
+    with pytest.raises(ValueError, match="Unsupported output file extension"):
+        opus_enc(valid_pcm, tmp_path / "out.mp3")
+
+    # 4c. Invalid extension for FLACEncoder
+    flac_enc = FLACEncoder()
+    with pytest.raises(ValueError, match="Unsupported output file extension"):
+        flac_enc(valid_pcm, tmp_path / "out.txt")
 
     # 5. File already exists and overwrite=False
     out_file = tmp_path / "existing.mp3"

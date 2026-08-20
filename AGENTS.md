@@ -1,7 +1,7 @@
 # python-ffmpeg-audio-io
 
 ## プロジェクト概要
-ffmpegをPythonでラップすることでオーディオファイルをデコードし、またMP3、AAC、AIFFへエンコードするためのライブラリです。
+ffmpegをPythonでラップすることでオーディオファイルをデコードし、またMP3、AAC、AIFF、Opus、FLACへエンコードするためのライブラリです。
 
 ## 設計方針・要件
 1. **外部パッケージの制限**:

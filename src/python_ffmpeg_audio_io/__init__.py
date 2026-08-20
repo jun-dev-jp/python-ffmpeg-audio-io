@@ -15,11 +15,21 @@ from .encoder.aiff import (
 from .encoder.base import (
     BaseAudioEncoder,
 )
+from .encoder.flac import (
+    FLACEncoder,
+    FLACEncoderCompressionLevel,
+)
 from .encoder.mp3 import (
     MP3Encoder,
     MP3EncoderBitrate,
     MP3EncoderMode,
     MP3EncoderQualityLevel,
+)
+from .encoder.opus import (
+    OpusEncoder,
+    OpusEncoderApplication,
+    OpusEncoderBitrate,
+    OpusEncoderMode,
 )
 from .exceptions import (
     FFmpegError,
@@ -55,12 +65,18 @@ __all__ = [
     "FFmpegError",
     "FFmpegNotFoundError",
     "FFprobeLogLevel",
+    "FLACEncoder",
+    "FLACEncoderCompressionLevel",
     "FileReadError",
     "FileWriteError",
     "MP3Encoder",
     "MP3EncoderBitrate",
     "MP3EncoderMode",
     "MP3EncoderQualityLevel",
+    "OpusEncoder",
+    "OpusEncoderApplication",
+    "OpusEncoderBitrate",
+    "OpusEncoderMode",
     "PCMChannels",
     "PCMCodec",
     "PCMFormat",
