@@ -4,6 +4,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from logging import getLogger
+
+import numpy as np
+from numpy.typing import NDArray
+
+from .exceptions import PCMFormatError
+
+logger = getLogger(__name__)
 
 
 class PCMFormat(Enum):
@@ -25,12 +33,12 @@ class PCMFormat(Enum):
     S32LE = "s32le"
     F32BE = "f32be"
     F32LE = "f32le"
-    F64BE = "f64be"
-    F64LE = "f64le"
     S64BE = "s64be"
     S64LE = "s64le"
     U64BE = "u64be"
     U64LE = "u64le"
+    F64BE = "f64be"
+    F64LE = "f64le"
 
 
 class PCMCodec(Enum):
@@ -52,12 +60,12 @@ class PCMCodec(Enum):
     PCM_S32LE = "pcm_s32le"
     PCM_F32BE = "pcm_f32be"
     PCM_F32LE = "pcm_f32le"
-    PCM_F64BE = "pcm_f64be"
-    PCM_F64LE = "pcm_f64le"
     PCM_S64BE = "pcm_s64be"
     PCM_S64LE = "pcm_s64le"
     PCM_U64BE = "pcm_u64be"
     PCM_U64LE = "pcm_u64le"
+    PCM_F64BE = "pcm_f64be"
+    PCM_F64LE = "pcm_f64le"
 
     @property
     def pcm_format(self) -> PCMFormat:
@@ -127,3 +135,161 @@ class PCM:
             raise TypeError(
                 f"channels must be an instance of PCMChannels, got {t_name}"
             )
+
+    @staticmethod
+    def from_numpy(
+        arr: NDArray[np.floating | np.integer],
+        sample_rate: PCMSampleRate,
+        channels: PCMChannels,
+    ) -> PCM:
+        """Initialize PCM from a NumPy array.
+
+        Args:
+            arr: The NumPy array to convert.
+            sample_rate: The sample rate of the PCM data.
+            channels: The number of channels in the PCM data.
+
+        Returns:
+            The PCM object initialized from the NumPy array.
+
+        Raises:
+            TypeError: If sample_rate or channels has an invalid type.
+            ValueError: If arr shape or dimension is invalid for channels.
+            PCMFormatError: If the NumPy array dtype is not supported.
+        """
+        if not isinstance(sample_rate, PCMSampleRate):
+            t_name = type(sample_rate).__name__
+            raise TypeError(
+                f"sample_rate must be an instance of PCMSampleRate, got {t_name}"
+            )
+        if not isinstance(channels, PCMChannels):
+            t_name = type(channels).__name__
+            raise TypeError(
+                f"channels must be an instance of PCMChannels, got {t_name}"
+            )
+
+        if arr.ndim == 1:
+            if arr.size % channels.value != 0:
+                msg = (
+                    f"Array size ({arr.size}) is not divisible by channel count "
+                    f"({channels.value})"
+                )
+                raise ValueError(msg)
+        elif arr.ndim == 2:
+            if arr.shape[1] != channels.value:
+                msg = (
+                    f"Array channel count ({arr.shape[1]}) does not match channels "
+                    f"({channels.value})"
+                )
+                raise ValueError(msg)
+        else:
+            raise ValueError(f"arr must be a 1D or 2D array, got {arr.ndim}D array")
+
+        native_dtype = arr.dtype.newbyteorder("=")
+        if native_dtype == np.uint8:
+            format = PCMFormat.U8
+        elif native_dtype == np.int8:
+            format = PCMFormat.S8
+        elif native_dtype == np.uint16:
+            format = PCMFormat.U16LE
+        elif native_dtype == np.int16:
+            format = PCMFormat.S16LE
+        elif native_dtype == np.uint32:
+            format = PCMFormat.U32LE
+        elif native_dtype == np.int32:
+            format = PCMFormat.S32LE
+        elif native_dtype == np.float32:
+            format = PCMFormat.F32LE
+        elif native_dtype == np.uint64:
+            format = PCMFormat.U64LE
+        elif native_dtype == np.int64:
+            format = PCMFormat.S64LE
+        elif native_dtype == np.float64:
+            format = PCMFormat.F64LE
+        else:
+            raise PCMFormatError(f"Unsupported Ndarray dtype: {arr.dtype}")
+
+        contiguous_arr = np.ascontiguousarray(arr)
+        if contiguous_arr.dtype.byteorder == ">":
+            contiguous_arr = contiguous_arr.astype(
+                contiguous_arr.dtype.newbyteorder("<")
+            )
+
+        return PCM(
+            data=contiguous_arr.tobytes(),
+            format=format,
+            sample_rate=sample_rate,
+            channels=channels,
+        )
+
+    def as_numpy(
+        self,
+    ) -> NDArray[
+        np.uint8
+        | np.int8
+        | np.uint16
+        | np.int16
+        | np.uint32
+        | np.int32
+        | np.float32
+        | np.uint64
+        | np.int64
+        | np.float64
+    ]:
+        """Convert PCM data to a NumPy array.
+
+        Note:
+            - u24LE, u24BE, s24LE, and s24BE are not supported.
+            - Big-endian formats (e.g. u32BE, s32BE, f32BE, u64BE, s64BE) are
+              converted to little-endian.
+
+        Returns:
+            The PCM data as a NumPy array with shape (num_samples, channels).
+
+        Raises:
+            PCMFormatError: If the PCM format is not supported.
+        """
+        format_val = self.format.value
+        channels = self.channels.value
+
+        if format_val == "u8":
+            return np.frombuffer(self.data, dtype=np.uint8).reshape(-1, channels)
+        elif format_val == "s8":
+            return np.frombuffer(self.data, dtype=np.int8).reshape(-1, channels)
+        elif format_val.startswith(("u24", "s24")):
+            logger.error(f"Unsupported PCM format: {format_val}")
+            raise PCMFormatError(f"Unsupported PCM format: {format_val}")
+        elif format_val.startswith("u16"):
+            type_code = "u2"
+        elif format_val.startswith("s16"):
+            type_code = "i2"
+        elif format_val.startswith("u32"):
+            type_code = "u4"
+        elif format_val.startswith("s32"):
+            type_code = "i4"
+        elif format_val.startswith("f32"):
+            type_code = "f4"
+        elif format_val.startswith("u64"):
+            type_code = "u8"
+        elif format_val.startswith("s64"):
+            type_code = "i8"
+        elif format_val.startswith("f64"):
+            type_code = "f8"
+        else:
+            logger.error(f"Unsupported PCM format: {format_val}")
+            raise PCMFormatError(f"Unsupported PCM format: {format_val}")
+
+        if format_val.endswith("le"):
+            dtype = np.dtype(f"<{type_code}")
+            return np.frombuffer(self.data, dtype=dtype).reshape(-1, channels)
+        elif format_val.endswith("be"):
+            be_dtype = np.dtype(f">{type_code}")
+            le_dtype = np.dtype(f"<{type_code}")
+            return (
+                np.frombuffer(self.data, dtype=be_dtype)
+                .astype(le_dtype)
+                .reshape(-1, channels)
+            )
+        else:
+            logger.error(f"Unsupported PCM format: {format_val}")
+            raise PCMFormatError(f"Unsupported PCM format: {format_val}")

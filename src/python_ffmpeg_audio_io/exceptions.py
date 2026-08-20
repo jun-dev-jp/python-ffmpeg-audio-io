@@ -27,3 +27,7 @@ class FFmpegError(PyFFmpegAudioIOError):
 
 class FFmpegNotFoundError(PyFFmpegAudioIOError):
     """Raised when ffmpeg or ffprobe executable is not found on the system."""
+
+
+class PCMFormatError(PyFFmpegAudioIOError):
+    """Raised when the PCM format is not supported."""
