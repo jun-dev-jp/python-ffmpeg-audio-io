@@ -1,5 +1,8 @@
 # python-ffmpeg-audio-io
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.14+](https://img.shields.io/badge/python-3.14+-blue.svg)](https://www.python.org/downloads/)
+
 A lightweight, robust Python audio I/O library powered by FFmpeg, designed without heavy third-party wrappers (`ffmpeg-python`, `pydub`, etc.).
 
 ## Features
@@ -16,7 +19,7 @@ A lightweight, robust Python audio I/O library powered by FFmpeg, designed witho
 
 ## Requirements
 
-- Python 3.13 or higher (tested on Python 3.14)
+- Python 3.14+
 - FFmpeg and FFprobe installed on your system and available in `PATH`
 
 ## Installation
@@ -181,6 +184,27 @@ with AudioStreamReader(
     for pcm_chunk in reader:
         arr = pcm_chunk.as_numpy()
         print(f"Read chunk with {len(arr)} frames")
+```
+
+#### Detecting End of Stream (EOF) & Stream Status
+
+You can detect when the audio stream has ended or closed:
+
+- **Iterator (`for chunk in reader`)**: Automatically terminates when reaching the end of the audio stream (EOF).
+- **Manual Read (`reader.read()`)**: Returns `None` once EOF is reached.
+- **Raw Bytes Read (`reader.read_bytes()`)**: Returns an empty byte sequence `b""` on EOF.
+- **Stream Status (`reader.closed`)**: A boolean property indicating whether the stream has been closed (e.g., after exiting the `with` block or explicitly calling `reader.close()`). Calling `read()` on a closed stream raises `StreamClosedError`.
+
+```python
+with AudioStreamReader("samples/sample.mp3") as reader:
+    while True:
+        chunk = reader.read()
+        if chunk is None:
+            print("Reached End of Stream (EOF)")
+            break
+        # Process chunk...
+
+print(f"Stream closed: {reader.closed}")  # True
 ```
 
 ### 6. Stream Audio Encoding (`StreamWriter`)
