@@ -1,48 +1,54 @@
 # python-ffmpeg-audio-io
 
-## プロジェクト概要
-FFmpeg / FFprobe を Python 標準の `subprocess` で直接ラップし、オーディオファイルのメタデータ取得、デコード、および各種フォーマット（MP3, AAC, AIFF, Opus, FLAC）へのエンコードを行うための軽量かつ堅牢なオーディオ I/O ライブラリです。
+## Project Overview
+A lightweight and robust audio I/O library that directly wraps FFmpeg / FFprobe using Python's standard `subprocess` module to retrieve audio metadata, decode audio files, and encode them into various formats (MP3, AAC, AIFF, Opus, FLAC).
 
-## 設計方針・要件
-1. **外部パッケージの制限**:
-   - 音声処理の核としてサードパーティの重いラッパーライブラリ（`ffmpeg-python`, `pydub` 等）は使用せず、標準ライブラリ（`subprocess` 等）で直接 FFmpeg / FFprobe と通信を行う。
-   - 生データ・数値配列の扱いには `numpy` を活用する。
-2. **パッケージ・環境管理**:
-   - 依存関係の管理、仮想環境の構築、テストの実行には `uv` を使用すること。
-   - 使用するPythonのバージョンは **Python 3.14**（3.13以上対応）を使用すること。
-3. **統一されたインターフェース**:
-   - **デコード**: 入力ファイルの種類（MP3, WAV, AIFF, FLAC, AAC 等）によらず、統一された API（`decode()` 関数）により raw PCM データを保持する `PCM` オブジェクトへ変換する。
-   - **メタデータ取得**: `get_audio_info()` を通じてサンプルレート、チャンネル数、ビットレート、再生時間などの音声メタデータを取得できる。
-   - **エンコード**: 各フォーマット用のエンコーダークラス（`MP3Encoder`, `AACEncoder`, `AIFFEncoder`, `OpusEncoder`, `FLACEncoder`）は `BaseAudioEncoder` を継承し、統一された呼び出し形式 `__call__(pcm, output_path, overwrite=False)` を提供する。
-4. **オーディオファイルのストリームとしての扱い**:
-   - **一時ファイルの回避とパイプ活用**: ディスクへの一時ファイル生成に依存せず、FFmpeg プロセスの標準入出力パイプ（`pipe:0`, `pipe:1`）を活用して生 PCM データをバイナリストリームとして逐次処理する。
-   - **読み込みストリーム**: 音声ファイルから生 PCM チャンクを逐次読み出す単一のリーダー（`AudioStreamReader`）を提供する（`with` 構文対応）。
-   - **書き込みストリーム**:
-     - 生 PCM チャンクを FFmpeg の標準入力（`pipe:0`）に逐次供給し、フォーマット変換を行う。
-     - **出力先はファイルパスのみに限定する**: エンコード結果を直接ディスク上のファイルへ書き出させることで、OS パイプバッファ溢れ（約 64KB）に伴うデッドロック（相互待ちによるハングアップ）リスクを排除し、シンプルかつ堅牢な実装とする（`BytesIO` などのメモリ上ストリーム出力は対象外とする）。
-     - 基底クラス（`BaseAudioStreamWriter`）を継承し、フォーマットごとのライタークラス（`MP3StreamWriter`, `AACStreamWriter` 等）を提供する（`with` 構文対応）。
+## Design Principles & Requirements
+1. **Restrictions on External Packages**:
+   - Do not use heavy third-party wrapper libraries (`ffmpeg-python`, `pydub`, etc.) for core audio processing; communicate directly with FFmpeg / FFprobe via the standard library (`subprocess`, etc.).
+   - Use `numpy` for handling raw data and numerical arrays.
+2. **Package & Environment Management**:
+   - Use `uv` for dependency management, virtual environment setup, and running tests.
+   - Target Python version: **Python 3.14** (compatible with 3.13+).
+3. **Unified Interface**:
+   - **Decoding**: Regardless of the input file format (MP3, WAV, AIFF, FLAC, AAC, etc.), decode to a `PCM` object holding raw PCM data via a unified API (`decode()` function).
+   - **Metadata Extraction**: Retrieve audio metadata such as sample rate, channel count, bit rate, and duration via `get_audio_info()`.
+   - **Encoding**: Format-specific encoder classes (`MP3Encoder`, `AACEncoder`, `AIFFEncoder`, `OpusEncoder`, `FLACEncoder`) inherit from `BaseAudioEncoder` and expose a unified call signature: `__call__(pcm, output_path, overwrite=False)`.
+4. **Treating Audio Files as Streams**:
+   - **Avoiding Temp Files & Leveraging Pipes**: Process raw PCM data sequentially as binary streams using FFmpeg process standard I/O pipes (`pipe:0`, `pipe:1`) without relying on temporary files on disk.
+   - **Read Stream**: Provide a single reader (`AudioStreamReader`) that yields raw PCM chunks sequentially from an audio file (supports `with` context manager).
+   - **Write Stream**:
+     - Sequentially supply raw PCM chunks to FFmpeg's standard input (`pipe:0`) to perform format conversion.
+     - **Restrict output destinations strictly to file paths**: Writing encoding output directly to disk files eliminates deadlock (hang) risks associated with OS pipe buffer overflows (~64KB), keeping the implementation simple and robust (in-memory stream output like `BytesIO` is out of scope).
+     - Provide format-specific writer classes (`MP3StreamWriter`, `AACStreamWriter`, etc.) inheriting from `BaseAudioStreamWriter` (supports `with` context manager).
 
-## エラーハンドリング方針
-1. **例外の定義**:
-   - 基底: `PyFFmpegAudioIOError`（FFmpeg の標準エラー出力 `stderr` を保持可能）
-   - 派生:
-     - `FileReadError`: ファイルが存在しない、読み取り権限がない、または通常ファイルでない場合
-     - `FileWriteError`: 出力先ファイルが既に存在し上書き不許可の場合、または書き込み権限がない場合
-     - `FFmpegError`: FFmpeg または FFprobe のサブプロセス実行がエラーで終了した場合
-     - `FFmpegNotFoundError`: FFmpeg または FFprobe の実行可能ファイルがシステム PATH に見つからない場合
-     - `PCMFormatError`: 未対応または不正な PCM フォーマット、NumPy 変換非対応フォーマット（24-bit PCM 等）の場合
-     - `StreamError`: ストリーム処理に関する基底例外
-       - `StreamClosedError`: クローズ済みまたは終了済みのストリームに対して読み込み・書き込み等の I/O 操作を行った場合
-       - `StreamBrokenError`: FFmpeg プロセスの予期せぬ終了、パイプ切断（BrokenPipeError）、またはストリーム途絶が発生した場合
-2. **FFmpeg例外のラップ**:
-   - 外部プロセス（`subprocess` による `ffmpeg` や `ffprobe` の実行）を伴う処理では、必ず実行失敗時（`FileNotFoundError`/`OSError` や `CalledProcessError` など）を想定した堅牢な例外処理を実装する。
-   - エラー発生時は、FFmpeg が出力した標準エラー出力（stderr）のメッセージをキャッチし、分かりやすい Python の例外メッセージおよび例外オブジェクトの属性に含めて送出する。
-3. **入力検証と型安全性**:
-   - 存在しないファイルパスが指定された場合や、サポート対象外の拡張子・パラメータの場合は、適切な例外を早期に発生させる。
-   - 外部入力や公開 API の境界では、適切な型や値の妥当性検証（`isinstance` チェック、Enum 検証、アライメントチェックなど）を行い、不正な入力に対しては早期に適切な例外（`TypeError` や `ValueError` など）を発生させる。
+## Error Handling Policy
+1. **Exception Hierarchy (All unified under `PyFFmpegAudioIOError`)**:
+   - Base: `PyFFmpegAudioIOError` (all library-specific exceptions inherit from this; supports storing FFmpeg `stderr`)
+   - Type and Value Validation:
+     - `AudioTypeError`: Raised when an argument has an invalid type (inherits from `PyFFmpegAudioIOError` and `TypeError`).
+     - `AudioValueError`: Raised when an argument has an invalid value (inherits from `PyFFmpegAudioIOError` and `ValueError`).
+     - `PCMFormatError`: Raised when a PCM format is unsupported, invalid, or cannot be converted to/from NumPy (inherits from `AudioValueError`).
+   - File & I/O:
+     - `AudioIOError`: Base exception for file I/O operations (inherits from `PyFFmpegAudioIOError` and `OSError`).
+     - `FileReadError`: File does not exist, lacks read permissions, or is not a regular file (inherits from `AudioIOError`).
+     - `FileWriteError`: Destination file already exists and overwrite is disabled, or destination is not writable (inherits from `AudioIOError`).
+   - FFmpeg Execution:
+     - `FFmpegError`: FFmpeg or FFprobe subprocess execution terminates with an error (stores `stderr`).
+     - `FFmpegNotFoundError`: FFmpeg or FFprobe executable is not found in system PATH (inherits from `FFmpegError` and `FileNotFoundError`).
+   - Stream Processing:
+     - `StreamError` (alias `AudioStreamError`): Base exception for stream processing.
+       - `StreamClosedError`: I/O operations attempted on a closed or terminated stream.
+       - `StreamBrokenError`: Unexpected termination of the FFmpeg process, broken pipe, or stream disconnection (inherits from `StreamError` and `BrokenPipeError`).
+2. **FFmpeg Exception Wrapping**:
+   - For operations involving external processes (`subprocess` calls to `ffmpeg` or `ffprobe`), always implement robust exception handling anticipating execution failures (`FileNotFoundError`/`OSError`, `CalledProcessError`, etc.).
+   - On error, capture FFmpeg's standard error (`stderr`) output message and raise a clear library exception with `stderr` accessible on the exception object.
+3. **Input Validation and Type Safety**:
+   - All public API boundaries and methods must validate input argument types and values early.
+   - Invalid argument types must raise `AudioTypeError`, and invalid values (unsupported extensions, invalid enum values, misaligned data) must raise `AudioValueError` (or `PCMFormatError`).
 
-## 開発・品質管理
-- **静的型チェック**: Pyright を使用する（`uv run pyright`）。PEP 561（`py.typed`）に準拠し、型ヒントを厳格に活用する。
-- **Docstring**: パブリック API をはじめとするモジュール・クラス・関数・メソッドには必ず適切な docstring（Google スタイル準拠の Args, Returns, Raises 等）を付与する。
-- **リンター・フォーマッター**: `uv run ruff check` / `uv run ruff format`
-- **テスト**: `uv run pytest`
+## Development & Quality Assurance
+- **Static Type Checking**: Use Pyright (`uv run pyright`). Strictly adhere to PEP 561 (`py.typed`) and type annotations.
+- **Docstrings**: All public APIs (modules, classes, functions, methods) must have Google-style docstrings (`Args`, `Returns`, `Raises`, etc.).
+- **Linter / Formatter**: `uv run ruff check` / `uv run ruff format`
+- **Testing**: `uv run pytest`

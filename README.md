@@ -52,9 +52,9 @@ from python_ffmpeg_audio_io import PCMCodec, decode
 # Decode any supported audio file to raw PCM bytes (default: 32-bit float LE)
 pcm = decode("samples/sample.mp3", pcm_codec=PCMCodec.PCM_F32LE)
 
-print(f"Format:           {pcm.format.value}")       # e.g., 'f32le'
+print(f"Format:           {pcm.format.value}")  # e.g., 'f32le'
 print(f"Sample Rate:      {pcm.sample_rate.value}")  # e.g., 44100
-print(f"Channels:         {pcm.channels.value}")     # e.g., 2 (STEREO)
+print(f"Channels:         {pcm.channels.value}")  # e.g., 2 (STEREO)
 print(f"Raw Bytes Length: {len(pcm.data)}")
 ```
 
@@ -220,18 +220,21 @@ You can also pass raw audio bytes via `writer.write_bytes(raw_bytes)`.
 
 ## Exception Hierarchy
 
-All library exceptions inherit from `PyFFmpegAudioIOError`:
+All library exceptions inherit from `PyFFmpegAudioIOError`, allowing callers to catch any library-specific error with a single base class. Where appropriate, they also inherit from standard Python exceptions (`TypeError`, `ValueError`, `OSError`) for seamless interoperability:
 
 ```
 PyFFmpegAudioIOError
-├── FileReadError         (Missing, unreadable, or non-file input)
-├── FileWriteError        (Existing file without overwrite, or unwritable target)
-├── FFmpegError           (Subprocess execution failure with captured stderr)
-├── FFmpegNotFoundError   (FFmpeg or FFprobe not found in system PATH)
-├── PCMFormatError        (Unsupported or misaligned PCM formats)
-└── AudioStreamError      (Base for streaming errors)
-    ├── StreamClosedError (Operation on a closed stream)
-    └── StreamBrokenError (Pipe disconnect or unexpected process termination)
+├── AudioTypeError           (Invalid argument type; inherits TypeError)
+├── AudioValueError          (Invalid argument value; inherits ValueError)
+│   └── PCMFormatError       (Unsupported or misaligned PCM format)
+├── AudioIOError             (File/IO operations; inherits OSError)
+│   ├── FileReadError        (Missing, unreadable, or non-file input)
+│   └── FileWriteError       (Existing file without overwrite, or unwritable target)
+├── FFmpegError              (Subprocess execution failure with captured stderr)
+│   └── FFmpegNotFoundError  (FFmpeg or FFprobe not found in system PATH; inherits FileNotFoundError)
+└── StreamError              (Base for streaming errors; alias: AudioStreamError)
+    ├── StreamClosedError    (Operation on a closed stream)
+    └── StreamBrokenError    (Pipe disconnect or unexpected process termination; inherits BrokenPipeError)
 ```
 
 ## Development

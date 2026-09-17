@@ -6,6 +6,7 @@ from collections.abc import Sequence
 from os import PathLike
 
 from ..encoder.aiff import SUPPORTED_AIFF_FORMAT_NAMES
+from ..exceptions import AudioTypeError
 from ..pcm import PCMChannels, PCMCodec, PCMFormat, PCMSampleRate
 from .base import BaseAudioStreamWriter
 
@@ -39,8 +40,8 @@ class AIFFStreamWriter(BaseAudioStreamWriter):
             codec: Audio PCMCodec for AIFF encoding (default: PCM_S16BE).
 
         Raises:
-            TypeError: If arguments are of incorrect type.
-            ValueError: If sample_rate, channels, or output file extension is
+            AudioTypeError: If arguments are of incorrect type.
+            AudioValueError: If sample_rate, channels, or output file extension is
                 unsupported.
             FileWriteError: If output file exists and overwrite is False.
             FFmpegNotFoundError: If FFmpeg executable is not in PATH.
@@ -48,7 +49,7 @@ class AIFFStreamWriter(BaseAudioStreamWriter):
         """
         if not isinstance(codec, PCMCodec):
             t_name = type(codec).__name__
-            raise TypeError(f"codec must be an instance of PCMCodec, got {t_name}")
+            raise AudioTypeError(f"codec must be an instance of PCMCodec, got {t_name}")
 
         self._codec = codec
 

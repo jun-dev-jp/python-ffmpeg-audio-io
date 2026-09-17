@@ -11,6 +11,7 @@ from ..encoder.aac import (
     AACEncoderMode,
     AACEncoderQualityLevel,
 )
+from ..exceptions import AudioTypeError
 from ..pcm import PCMChannels, PCMFormat, PCMSampleRate
 from .base import BaseAudioStreamWriter
 
@@ -54,8 +55,8 @@ class AACStreamWriter(BaseAudioStreamWriter):
             quality: VBR quality level 0-5 (default: Quality_5).
 
         Raises:
-            TypeError: If arguments are of incorrect type.
-            ValueError: If sample_rate, channels, or output file extension is
+            AudioTypeError: If arguments are of incorrect type.
+            AudioValueError: If sample_rate, channels, or output file extension is
                 unsupported.
             FileWriteError: If output file exists and overwrite is False.
             FFmpegNotFoundError: If FFmpeg executable is not in PATH.
@@ -63,13 +64,15 @@ class AACStreamWriter(BaseAudioStreamWriter):
         """
         if not isinstance(bitrate, AACEncoderBitrate):
             t_name = type(bitrate).__name__
-            raise TypeError(f"bitrate must be AACEncoderBitrate, got {t_name}")
+            raise AudioTypeError(f"bitrate must be AACEncoderBitrate, got {t_name}")
         if not isinstance(mode, AACEncoderMode):
             t_name = type(mode).__name__
-            raise TypeError(f"mode must be AACEncoderMode, got {t_name}")
+            raise AudioTypeError(f"mode must be AACEncoderMode, got {t_name}")
         if not isinstance(quality, AACEncoderQualityLevel):
             t_name = type(quality).__name__
-            raise TypeError(f"quality must be AACEncoderQualityLevel, got {t_name}")
+            raise AudioTypeError(
+                f"quality must be AACEncoderQualityLevel, got {t_name}"
+            )
 
         self._codec = "aac"
         self._bitrate = bitrate

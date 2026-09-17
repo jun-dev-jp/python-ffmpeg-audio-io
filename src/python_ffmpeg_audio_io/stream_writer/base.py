@@ -11,6 +11,8 @@ from types import TracebackType
 from typing import Self
 
 from ..exceptions import (
+    AudioTypeError,
+    AudioValueError,
     FFmpegError,
     FFmpegNotFoundError,
     FileWriteError,
@@ -62,8 +64,8 @@ class BaseAudioStreamWriter(ABC):
             overwrite: Whether to overwrite existing destination file (default: False).
 
         Raises:
-            TypeError: If arguments are of incorrect type.
-            ValueError: If sample_rate, channels, or output file extension is
+            AudioTypeError: If arguments are of incorrect type.
+            AudioValueError: If sample_rate, channels, or output file extension is
                 unsupported.
             FileWriteError: If output file exists and overwrite is False, or
                 not writable.
@@ -76,10 +78,12 @@ class BaseAudioStreamWriter(ABC):
             try:
                 self.sample_rate = PCMSampleRate(sample_rate)
             except ValueError as e:
-                raise ValueError(f"Unsupported sample rate: {sample_rate}") from e
+                raise AudioValueError(f"Unsupported sample rate: {sample_rate}") from e
         else:
             t_name = type(sample_rate).__name__
-            raise TypeError(f"sample_rate must be PCMSampleRate or int, got {t_name}")
+            raise AudioTypeError(
+                f"sample_rate must be PCMSampleRate or int, got {t_name}"
+            )
 
         if isinstance(channels, PCMChannels):
             self.channels = channels
@@ -87,14 +91,14 @@ class BaseAudioStreamWriter(ABC):
             try:
                 self.channels = PCMChannels(channels)
             except ValueError as e:
-                raise ValueError(f"Unsupported channel count: {channels}") from e
+                raise AudioValueError(f"Unsupported channel count: {channels}") from e
         else:
             t_name = type(channels).__name__
-            raise TypeError(f"channels must be PCMChannels or int, got {t_name}")
+            raise AudioTypeError(f"channels must be PCMChannels or int, got {t_name}")
 
         if not isinstance(pcm_format, PCMFormat):
             t_name = type(pcm_format).__name__
-            raise TypeError(f"pcm_format must be PCMFormat, got {t_name}")
+            raise AudioTypeError(f"pcm_format must be PCMFormat, got {t_name}")
         self.pcm_format = pcm_format
 
         dest_path = self._check_output_path(
@@ -135,19 +139,21 @@ class BaseAudioStreamWriter(ABC):
             Path: Validated Path object.
 
         Raises:
-            TypeError: If arguments are of incorrect type.
-            ValueError: If the file extension is not supported.
+            AudioTypeError: If arguments are of incorrect type.
+            AudioValueError: If the file extension is not supported.
             FileWriteError: If output file already exists and overwrite is False,
                 or if the existing file is not writable.
         """
         if not isinstance(output_path, (str, PathLike)):
             t_name = type(output_path).__name__
-            raise TypeError(f"output_path must be a str or PathLike, got {t_name}")
+            raise AudioTypeError(f"output_path must be a str or PathLike, got {t_name}")
         if not isinstance(overwrite, bool):
-            raise TypeError(f"overwrite must be a bool, got {type(overwrite).__name__}")
+            raise AudioTypeError(
+                f"overwrite must be a bool, got {type(overwrite).__name__}"
+            )
         if not isinstance(supported_formats, Sequence):
             t_name = type(supported_formats).__name__
-            raise TypeError(
+            raise AudioTypeError(
                 f"supported_formats must be a Sequence of str, got {t_name}"
             )
 
@@ -161,7 +167,7 @@ class BaseAudioStreamWriter(ABC):
                 f"Unsupported output file extension: '{path.suffix}'. "
                 f"Expected one of: {expected}"
             )
-            raise ValueError(msg)
+            raise AudioValueError(msg)
 
         if path.exists() and not overwrite:
             raise FileWriteError(f"Output file already exists: {path}")
@@ -234,8 +240,8 @@ class BaseAudioStreamWriter(ABC):
 
         Raises:
             StreamClosedError: If the writer is closed.
-            TypeError: If data is not bytes-like.
-            ValueError: If data length is not aligned to frame_size.
+            AudioTypeError: If data is not bytes-like.
+            AudioValueError: If data length is not aligned to frame_size.
             StreamBrokenError: If FFmpeg pipe is broken or process terminates
                 unexpectedly.
         """
@@ -243,7 +249,7 @@ class BaseAudioStreamWriter(ABC):
             raise StreamClosedError("Cannot write to a closed audio stream.")
         if not isinstance(data, (bytes, bytearray, memoryview)):
             t_name = type(data).__name__
-            raise TypeError(f"data must be bytes-like, got {t_name}")
+            raise AudioTypeError(f"data must be bytes-like, got {t_name}")
         if len(data) == 0:
             return 0
         if len(data) % self.frame_size != 0:
@@ -252,7 +258,7 @@ class BaseAudioStreamWriter(ABC):
                 f"({self.frame_size} bytes = {self.pcm_format.bytes_per_sample} "
                 f"bytes/sample * {self.channels.value} channels)."
             )
-            raise ValueError(msg)
+            raise AudioValueError(msg)
 
         stdin = self._process.stdin
         if stdin is None:
@@ -312,29 +318,30 @@ class BaseAudioStreamWriter(ABC):
 
         Raises:
             StreamClosedError: If the writer is closed.
-            TypeError: If pcm is not a PCM instance.
-            ValueError: If PCM format, sample rate, or channels mismatch stream config.
+            AudioTypeError: If pcm is not a PCM instance.
+            AudioValueError: If PCM format, sample rate, or channels mismatch
+                stream config.
             StreamBrokenError: If FFmpeg pipe breaks or process terminates unexpectedly.
         """
         if self._closed:
             raise StreamClosedError("Cannot write to a closed audio stream.")
         if not isinstance(pcm, PCM):
             t_name = type(pcm).__name__
-            raise TypeError(f"pcm must be an instance of PCM, got {t_name}")
+            raise AudioTypeError(f"pcm must be an instance of PCM, got {t_name}")
         if pcm.format != self.pcm_format:
             msg = f"PCM format mismatch: expected {self.pcm_format}, got {pcm.format}"
-            raise ValueError(msg)
+            raise AudioValueError(msg)
         if pcm.sample_rate != self.sample_rate:
             msg = (
                 f"Sample rate mismatch: expected {self.sample_rate}, "
                 f"got {pcm.sample_rate}"
             )
-            raise ValueError(msg)
+            raise AudioValueError(msg)
         if pcm.channels != self.channels:
             msg = (
                 f"Channel count mismatch: expected {self.channels}, got {pcm.channels}"
             )
-            raise ValueError(msg)
+            raise AudioValueError(msg)
 
         self.write_bytes(pcm.data)
         return len(pcm.data) // self.frame_size

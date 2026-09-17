@@ -5,6 +5,7 @@ from __future__ import annotations
 from enum import Enum
 from os import PathLike
 
+from ..exceptions import AudioTypeError
 from ..pcm import PCM
 from .base import BaseAudioEncoder
 
@@ -40,7 +41,7 @@ class FLACEncoder(BaseAudioEncoder):
     ) -> None:
         if not isinstance(compression_level, FLACEncoderCompressionLevel):
             t_name = type(compression_level).__name__
-            raise TypeError(
+            raise AudioTypeError(
                 f"compression_level must be FLACEncoderCompressionLevel, got {t_name}"
             )
 
@@ -61,8 +62,8 @@ class FLACEncoder(BaseAudioEncoder):
             overwrite: Whether to overwrite existing output file.
 
         Raises:
-            TypeError: If arguments are of incorrect type.
-            ValueError: If output format extension is unsupported.
+            AudioTypeError: If arguments are of incorrect type.
+            AudioValueError: If output format extension is unsupported.
             FileWriteError: If output file exists and overwrite is False.
             FFmpegNotFoundError: If FFmpeg executable is not found in PATH.
             FFmpegError: If FFmpeg encoding fails.
@@ -95,7 +96,7 @@ class FLACEncoder(BaseAudioEncoder):
         """Set the compression level of the FLAC encoder."""
         if not isinstance(value, FLACEncoderCompressionLevel):
             t_name = type(value).__name__
-            raise TypeError(
+            raise AudioTypeError(
                 f"compression_level must be FLACEncoderCompressionLevel, got {t_name}"
             )
         self._compression_level = value

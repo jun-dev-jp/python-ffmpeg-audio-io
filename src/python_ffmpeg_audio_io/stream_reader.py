@@ -9,10 +9,11 @@ from pathlib import Path
 from types import TracebackType
 
 from .exceptions import (
+    AudioTypeError,
+    AudioValueError,
     FFmpegError,
     FFmpegNotFoundError,
     FileReadError,
-    PyFFmpegAudioIOError,
     StreamBrokenError,
     StreamClosedError,
 )
@@ -60,26 +61,28 @@ class AudioStreamReader:
             chunk_frames: Default frame count per chunk during reading (default: 1024).
 
         Raises:
-            TypeError: If arguments are of incorrect type.
-            ValueError: If chunk_frames is not a positive integer.
+            AudioTypeError: If arguments are of incorrect type.
+            AudioValueError: If chunk_frames is not positive or audio metadata is
+                unsupported.
             FileReadError: If the audio file does not exist or is unreadable.
             FFmpegNotFoundError: If FFmpeg or FFprobe executable is not in PATH.
             FFmpegError: If FFmpeg fails to start or metadata probe fails.
-            PyFFmpegAudioIOError: If sample rate or channel count is unsupported.
         """
         if not isinstance(path, (str, PathLike)):
-            raise TypeError(
+            raise AudioTypeError(
                 f"path must be a str or PathLike, got {type(path).__name__}"
             )
         if not isinstance(pcm_codec, PCMCodec):
             t_name = type(pcm_codec).__name__
-            raise TypeError(f"pcm_codec must be an instance of PCMCodec, got {t_name}")
+            raise AudioTypeError(
+                f"pcm_codec must be an instance of PCMCodec, got {t_name}"
+            )
         if not isinstance(chunk_frames, int) or isinstance(chunk_frames, bool):
-            raise TypeError(
+            raise AudioTypeError(
                 f"chunk_frames must be an int, got {type(chunk_frames).__name__}"
             )
         if chunk_frames <= 0:
-            raise ValueError(f"chunk_frames must be positive, got {chunk_frames}")
+            raise AudioValueError(f"chunk_frames must be positive, got {chunk_frames}")
 
         audio_path = Path(path)
         if not audio_path.exists():
@@ -103,7 +106,7 @@ class AudioStreamReader:
                 f"Unsupported channel count '{self.info.channels}' "
                 f"in audio file: {audio_path}"
             )
-            raise PyFFmpegAudioIOError(msg) from e
+            raise AudioValueError(msg) from e
 
         try:
             self.sample_rate = PCMSampleRate(self.info.sample_rate)
@@ -112,7 +115,7 @@ class AudioStreamReader:
                 f"Unsupported sample rate '{self.info.sample_rate}' "
                 f"in audio file: {audio_path}"
             )
-            raise PyFFmpegAudioIOError(msg) from e
+            raise AudioValueError(msg) from e
 
         self.frame_size = self.pcm_format.bytes_per_sample * self.channels.value
         self._closed = False
@@ -189,7 +192,8 @@ class AudioStreamReader:
 
         Raises:
             StreamClosedError: If stream is closed.
-            ValueError: If frames is non-positive.
+            AudioTypeError: If frames is not an int.
+            AudioValueError: If frames is non-positive.
             StreamBrokenError: If stream pipe breaks or ends unaligned.
             FFmpegError: If FFmpeg process terminated with error.
         """
@@ -198,11 +202,11 @@ class AudioStreamReader:
 
         target_frames = self.chunk_frames if frames is None else frames
         if not isinstance(target_frames, int) or isinstance(target_frames, bool):
-            raise TypeError(
+            raise AudioTypeError(
                 f"frames must be an int, got {type(target_frames).__name__}"
             )
         if target_frames <= 0:
-            raise ValueError(f"frames must be positive, got {target_frames}")
+            raise AudioValueError(f"frames must be positive, got {target_frames}")
 
         n_bytes = target_frames * self.frame_size
         raw_bytes = self._read_exact(n_bytes)

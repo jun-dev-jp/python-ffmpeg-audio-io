@@ -9,6 +9,7 @@ from ..encoder.flac import (
     SUPPORTED_FLAC_FORMAT_NAMES,
     FLACEncoderCompressionLevel,
 )
+from ..exceptions import AudioTypeError
 from ..pcm import PCMChannels, PCMFormat, PCMSampleRate
 from .base import BaseAudioStreamWriter
 
@@ -46,8 +47,8 @@ class FLACStreamWriter(BaseAudioStreamWriter):
             compression_level: Compression level 0-12 (default: Level_5).
 
         Raises:
-            TypeError: If arguments are of incorrect type.
-            ValueError: If sample_rate, channels, or output file extension is
+            AudioTypeError: If arguments are of incorrect type.
+            AudioValueError: If sample_rate, channels, or output file extension is
                 unsupported.
             FileWriteError: If output file exists and overwrite is False.
             FFmpegNotFoundError: If FFmpeg executable is not in PATH.
@@ -55,7 +56,7 @@ class FLACStreamWriter(BaseAudioStreamWriter):
         """
         if not isinstance(compression_level, FLACEncoderCompressionLevel):
             t_name = type(compression_level).__name__
-            raise TypeError(
+            raise AudioTypeError(
                 f"compression_level must be FLACEncoderCompressionLevel, got {t_name}"
             )
 

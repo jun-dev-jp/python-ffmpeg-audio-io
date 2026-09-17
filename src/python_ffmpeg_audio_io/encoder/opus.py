@@ -5,6 +5,7 @@ from __future__ import annotations
 from enum import Enum
 from os import PathLike
 
+from ..exceptions import AudioTypeError
 from ..pcm import PCM
 from .base import BaseAudioEncoder
 
@@ -58,13 +59,15 @@ class OpusEncoder(BaseAudioEncoder):
     ) -> None:
         if not isinstance(bitrate, OpusEncoderBitrate):
             t_name = type(bitrate).__name__
-            raise TypeError(f"bitrate must be OpusEncoderBitrate, got {t_name}")
+            raise AudioTypeError(f"bitrate must be OpusEncoderBitrate, got {t_name}")
         if not isinstance(mode, OpusEncoderMode):
             t_name = type(mode).__name__
-            raise TypeError(f"mode must be OpusEncoderMode, got {t_name}")
+            raise AudioTypeError(f"mode must be OpusEncoderMode, got {t_name}")
         if not isinstance(application, OpusEncoderApplication):
             t_name = type(application).__name__
-            raise TypeError(f"application must be OpusEncoderApplication, got {t_name}")
+            raise AudioTypeError(
+                f"application must be OpusEncoderApplication, got {t_name}"
+            )
 
         self._codec: str = "libopus"
         self._bitrate: OpusEncoderBitrate = bitrate
@@ -85,8 +88,8 @@ class OpusEncoder(BaseAudioEncoder):
             overwrite: Whether to overwrite existing output file.
 
         Raises:
-            TypeError: If arguments are of incorrect type.
-            ValueError: If output format extension is unsupported.
+            AudioTypeError: If arguments are of incorrect type.
+            AudioValueError: If output format extension is unsupported.
             FileWriteError: If output file exists and overwrite is False.
             FFmpegNotFoundError: If FFmpeg executable is not found in PATH.
             FFmpegError: If FFmpeg encoding fails.
@@ -128,7 +131,7 @@ class OpusEncoder(BaseAudioEncoder):
         """Set the bitrate of the Opus encoder."""
         if not isinstance(value, OpusEncoderBitrate):
             t_name = type(value).__name__
-            raise TypeError(f"bitrate must be OpusEncoderBitrate, got {t_name}")
+            raise AudioTypeError(f"bitrate must be OpusEncoderBitrate, got {t_name}")
         self._bitrate = value
 
     @property
@@ -141,7 +144,7 @@ class OpusEncoder(BaseAudioEncoder):
         """Set the mode of the Opus encoder."""
         if not isinstance(value, OpusEncoderMode):
             t_name = type(value).__name__
-            raise TypeError(f"mode must be OpusEncoderMode, got {t_name}")
+            raise AudioTypeError(f"mode must be OpusEncoderMode, got {t_name}")
         self._mode = value
 
     @property
@@ -154,7 +157,9 @@ class OpusEncoder(BaseAudioEncoder):
         """Set the application type of the Opus encoder."""
         if not isinstance(value, OpusEncoderApplication):
             t_name = type(value).__name__
-            raise TypeError(f"application must be OpusEncoderApplication, got {t_name}")
+            raise AudioTypeError(
+                f"application must be OpusEncoderApplication, got {t_name}"
+            )
         self._application = value
 
 

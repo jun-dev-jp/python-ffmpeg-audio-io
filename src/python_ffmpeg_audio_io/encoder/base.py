@@ -9,7 +9,13 @@ from collections.abc import Sequence
 from os import W_OK, PathLike, access
 from pathlib import Path
 
-from ..exceptions import FFmpegError, FFmpegNotFoundError, FileWriteError
+from ..exceptions import (
+    AudioTypeError,
+    AudioValueError,
+    FFmpegError,
+    FFmpegNotFoundError,
+    FileWriteError,
+)
 from ..pcm import PCM
 
 logger = logging.getLogger(__name__)
@@ -33,8 +39,8 @@ class BaseAudioEncoder(ABC):
             overwrite: Whether to overwrite existing output file.
 
         Raises:
-            TypeError: If arguments are of incorrect type.
-            ValueError: If output format extension is unsupported.
+            AudioTypeError: If arguments are of incorrect type.
+            AudioValueError: If output format extension is unsupported.
             FileWriteError: If output file exists and overwrite is False.
             FFmpegNotFoundError: If FFmpeg executable is not found in PATH.
             FFmpegError: If FFmpeg encoding fails.
@@ -57,19 +63,21 @@ class BaseAudioEncoder(ABC):
             Path: Validated Path object.
 
         Raises:
-            TypeError: If arguments are of incorrect type.
-            ValueError: If the file extension is not supported.
+            AudioTypeError: If arguments are of incorrect type.
+            AudioValueError: If the file extension is not supported.
             FileWriteError: If output file already exists and overwrite is False,
                 or if the existing file is not writable.
         """
         if not isinstance(output_path, (str, PathLike)):
             t_name = type(output_path).__name__
-            raise TypeError(f"output_path must be a str or PathLike, got {t_name}")
+            raise AudioTypeError(f"output_path must be a str or PathLike, got {t_name}")
         if not isinstance(overwrite, bool):
-            raise TypeError(f"overwrite must be a bool, got {type(overwrite).__name__}")
+            raise AudioTypeError(
+                f"overwrite must be a bool, got {type(overwrite).__name__}"
+            )
         if not isinstance(supported_formats, Sequence):
             t_name = type(supported_formats).__name__
-            raise TypeError(
+            raise AudioTypeError(
                 f"supported_formats must be a Sequence of str, got {t_name}"
             )
 
@@ -83,7 +91,7 @@ class BaseAudioEncoder(ABC):
                 f"Unsupported output file extension: '{path.suffix}'. "
                 f"Expected one of: {expected}"
             )
-            raise ValueError(msg)
+            raise AudioValueError(msg)
 
         if path.exists() and not overwrite:
             raise FileWriteError(f"Output file already exists: {path}")
@@ -112,23 +120,25 @@ class BaseAudioEncoder(ABC):
             overwrite: Whether to overwrite existing file.
 
         Raises:
-            TypeError: If arguments are of incorrect type.
+            AudioTypeError: If arguments are of incorrect type.
             FFmpegNotFoundError: If FFmpeg executable is not found in PATH.
             FFmpegError: If FFmpeg encoding process fails.
         """
         if not isinstance(pcm, PCM):
             t_name = type(pcm).__name__
-            raise TypeError(
+            raise AudioTypeError(
                 f"Invalid PCM data type: expected PCM instance, got {t_name}"
             )
         if not isinstance(overwrite, bool):
-            raise TypeError(f"overwrite must be a bool, got {type(overwrite).__name__}")
+            raise AudioTypeError(
+                f"overwrite must be a bool, got {type(overwrite).__name__}"
+            )
         if not isinstance(codec_args, Sequence):
             t_name = type(codec_args).__name__
-            raise TypeError(f"codec_args must be a Sequence of str, got {t_name}")
+            raise AudioTypeError(f"codec_args must be a Sequence of str, got {t_name}")
         if not isinstance(output_path, (str, PathLike)):
             t_name = type(output_path).__name__
-            raise TypeError(f"output_path must be a str or PathLike, got {t_name}")
+            raise AudioTypeError(f"output_path must be a str or PathLike, got {t_name}")
 
         cmd: list[str] = [
             "ffmpeg",

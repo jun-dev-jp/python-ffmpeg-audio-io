@@ -10,7 +10,7 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
-from .exceptions import PCMFormatError
+from .exceptions import AudioTypeError, AudioValueError, PCMFormatError
 
 logger = getLogger(__name__)
 
@@ -136,20 +136,22 @@ class PCM:
         """Validate fields upon initialization."""
         if not isinstance(self.data, (bytes, bytearray)):
             t_name = type(self.data).__name__
-            raise TypeError(f"data must be bytes or bytearray, got {t_name}")
+            raise AudioTypeError(f"data must be bytes or bytearray, got {t_name}")
         if isinstance(self.data, bytearray):
             object.__setattr__(self, "data", bytes(self.data))
         if not isinstance(self.format, PCMFormat):
             t_name = type(self.format).__name__
-            raise TypeError(f"format must be an instance of PCMFormat, got {t_name}")
+            raise AudioTypeError(
+                f"format must be an instance of PCMFormat, got {t_name}"
+            )
         if not isinstance(self.sample_rate, PCMSampleRate):
             t_name = type(self.sample_rate).__name__
-            raise TypeError(
+            raise AudioTypeError(
                 f"sample_rate must be an instance of PCMSampleRate, got {t_name}"
             )
         if not isinstance(self.channels, PCMChannels):
             t_name = type(self.channels).__name__
-            raise TypeError(
+            raise AudioTypeError(
                 f"channels must be an instance of PCMChannels, got {t_name}"
             )
 
@@ -161,7 +163,7 @@ class PCM:
                 f"size ({frame_size} bytes = {self.format.bytes_per_sample} "
                 f"bytes/sample * {self.channels.value} channels)"
             )
-            raise ValueError(msg)
+            raise AudioValueError(msg)
 
     @staticmethod
     def from_numpy(
@@ -180,21 +182,21 @@ class PCM:
             The PCM object initialized from the NumPy array.
 
         Raises:
-            TypeError: If arr, sample_rate, or channels has an invalid type.
-            ValueError: If arr shape or dimension is invalid for channels.
+            AudioTypeError: If arr, sample_rate, or channels has an invalid type.
+            AudioValueError: If arr shape or dimension is invalid for channels.
             PCMFormatError: If the NumPy array dtype is not supported.
         """
         if not isinstance(arr, np.ndarray):
             t_name = type(arr).__name__
-            raise TypeError(f"arr must be a numpy.ndarray, got {t_name}")
+            raise AudioTypeError(f"arr must be a numpy.ndarray, got {t_name}")
         if not isinstance(sample_rate, PCMSampleRate):
             t_name = type(sample_rate).__name__
-            raise TypeError(
+            raise AudioTypeError(
                 f"sample_rate must be an instance of PCMSampleRate, got {t_name}"
             )
         if not isinstance(channels, PCMChannels):
             t_name = type(channels).__name__
-            raise TypeError(
+            raise AudioTypeError(
                 f"channels must be an instance of PCMChannels, got {t_name}"
             )
 
@@ -204,16 +206,18 @@ class PCM:
                     f"Array size ({arr.size}) is not divisible by channel count "
                     f"({channels.value})"
                 )
-                raise ValueError(msg)
+                raise AudioValueError(msg)
         elif arr.ndim == 2:
             if arr.shape[1] != channels.value:
                 msg = (
                     f"Array channel count ({arr.shape[1]}) does not match channels "
                     f"({channels.value})"
                 )
-                raise ValueError(msg)
+                raise AudioValueError(msg)
         else:
-            raise ValueError(f"arr must be a 1D or 2D array, got {arr.ndim}D array")
+            raise AudioValueError(
+                f"arr must be a 1D or 2D array, got {arr.ndim}D array"
+            )
 
         native_dtype = arr.dtype.newbyteorder("=")
         if native_dtype == np.uint8:

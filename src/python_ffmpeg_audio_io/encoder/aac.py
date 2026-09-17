@@ -5,6 +5,7 @@ from __future__ import annotations
 from enum import Enum
 from os import PathLike
 
+from ..exceptions import AudioTypeError
 from ..pcm import PCM
 from .base import BaseAudioEncoder
 
@@ -57,13 +58,15 @@ class AACEncoder(BaseAudioEncoder):
     ) -> None:
         if not isinstance(bitrate, AACEncoderBitrate):
             t_name = type(bitrate).__name__
-            raise TypeError(f"bitrate must be AACEncoderBitrate, got {t_name}")
+            raise AudioTypeError(f"bitrate must be AACEncoderBitrate, got {t_name}")
         if not isinstance(mode, AACEncoderMode):
             t_name = type(mode).__name__
-            raise TypeError(f"mode must be AACEncoderMode, got {t_name}")
+            raise AudioTypeError(f"mode must be AACEncoderMode, got {t_name}")
         if not isinstance(quality, AACEncoderQualityLevel):
             t_name = type(quality).__name__
-            raise TypeError(f"quality must be AACEncoderQualityLevel, got {t_name}")
+            raise AudioTypeError(
+                f"quality must be AACEncoderQualityLevel, got {t_name}"
+            )
 
         self._codec: str = "aac"
         self._bitrate: AACEncoderBitrate = bitrate
@@ -84,8 +87,8 @@ class AACEncoder(BaseAudioEncoder):
             overwrite: Whether to overwrite existing output file.
 
         Raises:
-            TypeError: If arguments are of incorrect type.
-            ValueError: If output format extension is unsupported.
+            AudioTypeError: If arguments are of incorrect type.
+            AudioValueError: If output format extension is unsupported.
             FileWriteError: If output file exists and overwrite is False.
             FFmpegNotFoundError: If FFmpeg executable is not found in PATH.
             FFmpegError: If FFmpeg encoding fails.
@@ -119,7 +122,7 @@ class AACEncoder(BaseAudioEncoder):
         """Set the bitrate of the AAC encoder."""
         if not isinstance(value, AACEncoderBitrate):
             t_name = type(value).__name__
-            raise TypeError(f"bitrate must be AACEncoderBitrate, got {t_name}")
+            raise AudioTypeError(f"bitrate must be AACEncoderBitrate, got {t_name}")
         self._bitrate = value
 
     @property
@@ -132,7 +135,9 @@ class AACEncoder(BaseAudioEncoder):
         """Set the quality level of the AAC encoder."""
         if not isinstance(value, AACEncoderQualityLevel):
             t_name = type(value).__name__
-            raise TypeError(f"quality must be AACEncoderQualityLevel, got {t_name}")
+            raise AudioTypeError(
+                f"quality must be AACEncoderQualityLevel, got {t_name}"
+            )
         self._quality = value
 
     @property
@@ -145,7 +150,7 @@ class AACEncoder(BaseAudioEncoder):
         """Set the mode of the AAC encoder."""
         if not isinstance(value, AACEncoderMode):
             t_name = type(value).__name__
-            raise TypeError(f"mode must be AACEncoderMode, got {t_name}")
+            raise AudioTypeError(f"mode must be AACEncoderMode, got {t_name}")
         self._mode = value
 
 

@@ -10,6 +10,8 @@ from os import R_OK, PathLike, access
 from pathlib import Path
 
 from .exceptions import (
+    AudioTypeError,
+    AudioValueError,
     FFmpegError,
     FFmpegNotFoundError,
     FileReadError,
@@ -34,36 +36,38 @@ class AudioInfo:
     def __post_init__(self) -> None:
         """Validate fields upon initialization."""
         if not isinstance(self.sample_rate, int) or self.sample_rate <= 0:
-            raise ValueError(
+            raise AudioValueError(
                 f"sample_rate must be a positive integer, got {self.sample_rate}"
             )
         if not isinstance(self.channels, int) or self.channels <= 0:
-            raise ValueError(
+            raise AudioValueError(
                 f"channels must be a positive integer, got {self.channels}"
             )
         if not isinstance(self.duration, (int, float)) or self.duration < 0:
-            raise ValueError(
+            raise AudioValueError(
                 f"duration must be a non-negative float, got {self.duration}"
             )
         if not isinstance(self.sample_fmt, str):
-            raise TypeError(
+            raise AudioTypeError(
                 f"sample_fmt must be a str, got {type(self.sample_fmt).__name__}"
             )
         if not isinstance(self.codec_name, str):
-            raise TypeError(
+            raise AudioTypeError(
                 f"codec_name must be a str, got {type(self.codec_name).__name__}"
             )
         if not isinstance(self.format_name, str):
-            raise TypeError(
+            raise AudioTypeError(
                 f"format_name must be a str, got {type(self.format_name).__name__}"
             )
         if not isinstance(self.format_long_name, str):
             t_name = type(self.format_long_name).__name__
-            raise TypeError(f"format_long_name must be a str, got {t_name}")
+            raise AudioTypeError(f"format_long_name must be a str, got {t_name}")
         if not isinstance(self.size, int) or self.size < 0:
-            raise ValueError(f"size must be a non-negative integer, got {self.size}")
+            raise AudioValueError(
+                f"size must be a non-negative integer, got {self.size}"
+            )
         if not isinstance(self.bit_rate, int) or self.bit_rate < 0:
-            raise ValueError(
+            raise AudioValueError(
                 f"bit_rate must be a non-negative integer, got {self.bit_rate}"
             )
 
@@ -92,14 +96,14 @@ def get_audio_info(file_path: str | PathLike[str]) -> AudioInfo:
         AudioInfo containing parsed metadata.
 
     Raises:
-        TypeError: If file_path is not a str or PathLike.
+        AudioTypeError: If file_path is not a str or PathLike.
         FileReadError: If the audio file does not exist or is unreadable.
         FFmpegNotFoundError: If ffprobe is not installed or not found in PATH.
         FFmpegError: If ffprobe fails to run or output is invalid.
         PyFFmpegAudioIOError: If no audio stream is found or parsing fails.
     """
     if not isinstance(file_path, (str, PathLike)):
-        raise TypeError(
+        raise AudioTypeError(
             f"file_path must be a str or PathLike, got {type(file_path).__name__}"
         )
 
@@ -181,19 +185,19 @@ def run_ffprobe(
         Dictionary containing the parsed FFprobe JSON output.
 
     Raises:
-        TypeError: If arguments are of incorrect type.
+        AudioTypeError: If arguments are of incorrect type.
         FileReadError: If the audio file does not exist or is unreadable.
         FFmpegNotFoundError: If ffprobe is not installed or not found in PATH.
         FFmpegError: If ffprobe fails to inspect the file or output is invalid JSON.
     """
     if not isinstance(file_path, (str, PathLike)):
-        raise TypeError(
+        raise AudioTypeError(
             f"file_path must be a str or PathLike, got {type(file_path).__name__}"
         )
     if not isinstance(log_level, FFprobeLogLevel):
         t_name = type(log_level).__name__
         msg = f"log_level must be an instance of FFprobeLogLevel, got {t_name}"
-        raise TypeError(msg)
+        raise AudioTypeError(msg)
 
     path = Path(file_path)
     if not path.exists():

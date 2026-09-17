@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from os import PathLike
 
+from ..exceptions import AudioTypeError
 from ..pcm import PCM, PCMCodec
 from .base import BaseAudioEncoder
 
@@ -19,7 +20,7 @@ class AIFFEncoder(BaseAudioEncoder):
     ) -> None:
         if not isinstance(codec, PCMCodec):
             t_name = type(codec).__name__
-            raise TypeError(f"codec must be an instance of PCMCodec, got {t_name}")
+            raise AudioTypeError(f"codec must be an instance of PCMCodec, got {t_name}")
         self._codec: PCMCodec = codec
 
     def __call__(
@@ -36,8 +37,8 @@ class AIFFEncoder(BaseAudioEncoder):
             overwrite: Whether to overwrite existing output file.
 
         Raises:
-            TypeError: If arguments are of incorrect type.
-            ValueError: If output format extension is unsupported.
+            AudioTypeError: If arguments are of incorrect type.
+            AudioValueError: If output format extension is unsupported.
             FileWriteError: If output file exists and overwrite is False.
             FFmpegNotFoundError: If FFmpeg executable is not found in PATH.
             FFmpegError: If FFmpeg encoding fails.
@@ -65,7 +66,7 @@ class AIFFEncoder(BaseAudioEncoder):
         """Set the codec of the AIFF encoder."""
         if not isinstance(value, PCMCodec):
             t_name = type(value).__name__
-            raise TypeError(f"codec must be an instance of PCMCodec, got {t_name}")
+            raise AudioTypeError(f"codec must be an instance of PCMCodec, got {t_name}")
         self._codec = value
 
 

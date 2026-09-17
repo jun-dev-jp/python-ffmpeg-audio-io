@@ -7,10 +7,11 @@ from os import R_OK, PathLike, access
 from pathlib import Path
 
 from .exceptions import (
+    AudioTypeError,
+    AudioValueError,
     FFmpegError,
     FFmpegNotFoundError,
     FileReadError,
-    PyFFmpegAudioIOError,
 )
 from .ffprobe import get_audio_info
 from .pcm import PCM, PCMChannels, PCMCodec, PCMSampleRate
@@ -30,18 +31,21 @@ def decode(
         PCM: A dataclass instance containing the decoded PCM raw bytes and metadata.
 
     Raises:
-        TypeError: If arguments are of incorrect type.
+        AudioTypeError: If arguments are of incorrect type.
+        AudioValueError: If metadata parsing fails or audio channels/sample rate
+            are not supported by PCMChannels / PCMSampleRate.
         FileReadError: If the audio file does not exist or is unreadable.
         FFmpegNotFoundError: If FFmpeg or FFprobe executable is not found in PATH.
         FFmpegError: If decoding fails or FFmpeg returns an error.
-        PyFFmpegAudioIOError: If metadata parsing fails or audio channels/sample rate
-            are not supported by PCMChannels / PCMSampleRate.
+        PyFFmpegAudioIOError: Base class for all above errors.
     """
     if not isinstance(path, (str, PathLike)):
-        raise TypeError(f"path must be a str or PathLike, got {type(path).__name__}")
+        raise AudioTypeError(
+            f"path must be a str or PathLike, got {type(path).__name__}"
+        )
     if not isinstance(pcm_codec, PCMCodec):
         t_name = type(pcm_codec).__name__
-        raise TypeError(f"pcm_codec must be an instance of PCMCodec, got {t_name}")
+        raise AudioTypeError(f"pcm_codec must be an instance of PCMCodec, got {t_name}")
 
     audio_path = Path(path)
     if not audio_path.exists():
@@ -60,7 +64,7 @@ def decode(
             f"Unsupported channel count '{audio_info.channels}' "
             f"in audio file: {audio_path}"
         )
-        raise PyFFmpegAudioIOError(msg) from e
+        raise AudioValueError(msg) from e
 
     try:
         pcm_sample_rate = PCMSampleRate(audio_info.sample_rate)
@@ -69,7 +73,7 @@ def decode(
             f"Unsupported sample rate '{audio_info.sample_rate}' "
             f"in audio file: {audio_path}"
         )
-        raise PyFFmpegAudioIOError(msg) from e
+        raise AudioValueError(msg) from e
 
     sample_format = pcm_codec.pcm_format
 

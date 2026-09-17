@@ -32,7 +32,10 @@ from .encoder.opus import (
     OpusEncoderMode,
 )
 from .exceptions import (
+    AudioIOError,
     AudioStreamError,
+    AudioTypeError,
+    AudioValueError,
     FFmpegError,
     FFmpegNotFoundError,
     FileReadError,
@@ -41,6 +44,7 @@ from .exceptions import (
     PyFFmpegAudioIOError,
     StreamBrokenError,
     StreamClosedError,
+    StreamError,
 )
 from .ffprobe import (
     AudioInfo,
@@ -76,9 +80,12 @@ __all__ = [
     "AACStreamWriter",
     "AIFFEncoder",
     "AIFFStreamWriter",
+    "AudioIOError",
     "AudioInfo",
     "AudioStreamError",
     "AudioStreamReader",
+    "AudioTypeError",
+    "AudioValueError",
     "BaseAudioEncoder",
     "BaseAudioStreamWriter",
     "FFmpegError",
@@ -107,6 +114,7 @@ __all__ = [
     "PyFFmpegAudioIOError",
     "StreamBrokenError",
     "StreamClosedError",
+    "StreamError",
     "decode",
     "get_audio_info",
     "run_ffprobe",

@@ -11,6 +11,7 @@ from ..encoder.opus import (
     OpusEncoderBitrate,
     OpusEncoderMode,
 )
+from ..exceptions import AudioTypeError
 from ..pcm import PCMChannels, PCMFormat, PCMSampleRate
 from .base import BaseAudioStreamWriter
 
@@ -54,8 +55,8 @@ class OpusStreamWriter(BaseAudioStreamWriter):
             application: Intended application type (default: AUDIO).
 
         Raises:
-            TypeError: If arguments are of incorrect type.
-            ValueError: If sample_rate, channels, or output file extension is
+            AudioTypeError: If arguments are of incorrect type.
+            AudioValueError: If sample_rate, channels, or output file extension is
                 unsupported.
             FileWriteError: If output file exists and overwrite is False.
             FFmpegNotFoundError: If FFmpeg executable is not in PATH.
@@ -63,13 +64,15 @@ class OpusStreamWriter(BaseAudioStreamWriter):
         """
         if not isinstance(bitrate, OpusEncoderBitrate):
             t_name = type(bitrate).__name__
-            raise TypeError(f"bitrate must be OpusEncoderBitrate, got {t_name}")
+            raise AudioTypeError(f"bitrate must be OpusEncoderBitrate, got {t_name}")
         if not isinstance(mode, OpusEncoderMode):
             t_name = type(mode).__name__
-            raise TypeError(f"mode must be OpusEncoderMode, got {t_name}")
+            raise AudioTypeError(f"mode must be OpusEncoderMode, got {t_name}")
         if not isinstance(application, OpusEncoderApplication):
             t_name = type(application).__name__
-            raise TypeError(f"application must be OpusEncoderApplication, got {t_name}")
+            raise AudioTypeError(
+                f"application must be OpusEncoderApplication, got {t_name}"
+            )
 
         self._codec = "libopus"
         self._bitrate = bitrate

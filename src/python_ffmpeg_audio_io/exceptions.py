@@ -13,11 +13,23 @@ class PyFFmpegAudioIOError(Exception):
         self.stderr = stderr
 
 
-class FileReadError(PyFFmpegAudioIOError):
+class AudioTypeError(PyFFmpegAudioIOError, TypeError):
+    """Raised when an argument has an invalid type."""
+
+
+class AudioValueError(PyFFmpegAudioIOError, ValueError):
+    """Raised when an argument has an invalid value."""
+
+
+class AudioIOError(PyFFmpegAudioIOError, OSError):
+    """Base exception for audio file I/O operations."""
+
+
+class FileReadError(AudioIOError):
     """Raised when a file cannot be read or does not exist."""
 
 
-class FileWriteError(PyFFmpegAudioIOError):
+class FileWriteError(AudioIOError):
     """Raised when a file cannot be written or output destination is invalid."""
 
 
@@ -25,28 +37,34 @@ class FFmpegError(PyFFmpegAudioIOError):
     """Raised when an ffmpeg or ffprobe subprocess fails or returns an error."""
 
 
-class FFmpegNotFoundError(PyFFmpegAudioIOError):
+class FFmpegNotFoundError(FFmpegError, FileNotFoundError):
     """Raised when ffmpeg or ffprobe executable is not found on the system."""
 
 
-class PCMFormatError(PyFFmpegAudioIOError):
-    """Raised when the PCM format is not supported."""
+class PCMFormatError(AudioValueError):
+    """Raised when the PCM format is not supported or misaligned."""
 
 
-class AudioStreamError(PyFFmpegAudioIOError):
+class StreamError(PyFFmpegAudioIOError):
     """Base exception for audio stream errors."""
 
 
-class StreamClosedError(AudioStreamError):
+AudioStreamError = StreamError
+
+
+class StreamClosedError(StreamError):
     """Raised when an I/O operation is attempted on a closed audio stream."""
 
 
-class StreamBrokenError(AudioStreamError):
+class StreamBrokenError(StreamError, BrokenPipeError):
     """Raised when an audio stream pipe is broken or process terminates unexpectedly."""
 
 
 __all__ = [
+    "AudioIOError",
     "AudioStreamError",
+    "AudioTypeError",
+    "AudioValueError",
     "FFmpegError",
     "FFmpegNotFoundError",
     "FileReadError",
@@ -55,4 +73,5 @@ __all__ = [
     "PyFFmpegAudioIOError",
     "StreamBrokenError",
     "StreamClosedError",
+    "StreamError",
 ]
