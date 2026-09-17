@@ -33,11 +33,26 @@ class PCMFormatError(PyFFmpegAudioIOError):
     """Raised when the PCM format is not supported."""
 
 
+class AudioStreamError(PyFFmpegAudioIOError):
+    """Base exception for audio stream errors."""
+
+
+class StreamClosedError(AudioStreamError):
+    """Raised when an I/O operation is attempted on a closed audio stream."""
+
+
+class StreamBrokenError(AudioStreamError):
+    """Raised when an audio stream pipe is broken or process terminates unexpectedly."""
+
+
 __all__ = [
+    "AudioStreamError",
     "FFmpegError",
     "FFmpegNotFoundError",
     "FileReadError",
     "FileWriteError",
     "PCMFormatError",
     "PyFFmpegAudioIOError",
+    "StreamBrokenError",
+    "StreamClosedError",
 ]

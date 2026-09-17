@@ -4,10 +4,14 @@ A lightweight, robust Python audio I/O library powered by FFmpeg, designed witho
 
 ## Features
 
-- **Direct FFmpeg/FFprobe Integration**: Uses the standard library `subprocess` and FFmpeg pipes for maximum performance, reliability, and minimal overhead.
-- **Unified Decoding API**: Decode diverse audio formats (MP3, AAC, AIFF, WAV, FLAC, etc.) into a structured `PCM` object with a single `decode()` function.
-- **Dedicated Audio Encoders**: High-level encoders for **MP3**, **AAC**, **AIFF**, **Opus**, and **FLAC** supporting configurable bitrates, compression levels, and modes.
-- **Strict Typing & Runtime Validation**: Fully type-hinted (PEP 561 `py.typed`) with runtime parameter validation.
+- **Direct FFmpeg/FFprobe Integration**: Uses standard library `subprocess` and FFmpeg pipes for maximum performance, reliability, and minimal overhead.
+- **Unified Decoding API**: Decode diverse audio formats (MP3, AAC, AIFF, WAV, FLAC, OGG, etc.) into a structured `PCM` object with a single `decode()` function.
+- **Dedicated Audio Encoders**: High-level batch encoders for **MP3**, **AAC**, **AIFF**, **Opus**, and **FLAC** supporting configurable bitrates, compression levels, and modes.
+- **Streaming Audio I/O**:
+  - **`AudioStreamReader`**: Stream audio decoding chunk-by-chunk using standard FFmpeg pipes without intermediate files.
+  - **`StreamWriter`** (`MP3StreamWriter`, `AACStreamWriter`, `AIFFStreamWriter`, `OpusStreamWriter`, `FLACStreamWriter`): Incrementally feed PCM chunks directly into FFmpeg encoding processes.
+- **NumPy Integration**: Seamlessly convert between `PCM` objects and `numpy.ndarray` via `pcm.as_numpy()` and `PCM.from_numpy()`.
+- **Strict Typing & Runtime Validation**: Fully type-hinted (PEP 561 `py.typed`, verified with Pyright) with comprehensive runtime parameter validation.
 - **Robust Error Handling**: Captures FFmpeg `stderr` and maps failures to a structured hierarchy derived from `PyFFmpegAudioIOError`.
 
 ## Requirements
@@ -30,33 +34,55 @@ pip install git+https://github.com/jun-dev-jp/python-ffmpeg-audio-io.git
 ### 1. Inspect Audio Metadata (`get_audio_info`)
 
 ```python
-from pathlib import Path
 from python_ffmpeg_audio_io import get_audio_info
 
 info = get_audio_info("samples/sample.mp3")
 print(f"Sample Rate: {info.sample_rate} Hz")
-print(f"Channels: {info.channels}")
-print(f"Duration: {info.duration:.2f} s")
-print(f"Codec: {info.codec_name}")
-print(f"Bitrate: {info.bit_rate} bps")
+print(f"Channels:    {info.channels}")
+print(f"Duration:    {info.duration:.2f} s")
+print(f"Codec:       {info.codec_name}")
+print(f"Bitrate:     {info.bit_rate} bps")
 ```
 
 ### 2. Decode Audio to PCM (`decode`)
 
 ```python
-from pathlib import Path
 from python_ffmpeg_audio_io import PCMCodec, decode
 
 # Decode any supported audio file to raw PCM bytes (default: 32-bit float LE)
 pcm = decode("samples/sample.mp3", pcm_codec=PCMCodec.PCM_F32LE)
 
-print(f"Format: {pcm.format.value}")  # e.g., 'f32le'
-print(f"Sample Rate: {pcm.sample_rate.value}")  # e.g., 44100
-print(f"Channels: {pcm.channels.value}")  # e.g., 1 (MONO)
+print(f"Format:           {pcm.format.value}")       # e.g., 'f32le'
+print(f"Sample Rate:      {pcm.sample_rate.value}")  # e.g., 44100
+print(f"Channels:         {pcm.channels.value}")     # e.g., 2 (STEREO)
 print(f"Raw Bytes Length: {len(pcm.data)}")
 ```
 
-### 3. Encode to MP3 (`MP3Encoder`)
+### 3. NumPy Interoperability (`as_numpy` / `from_numpy`)
+
+```python
+import numpy as np
+from python_ffmpeg_audio_io import PCM, PCMChannels, PCMSampleRate, decode
+
+# Decode and convert to a NumPy 2D array of shape (frames, channels)
+pcm = decode("samples/sample.mp3")
+arr = pcm.as_numpy()
+print(f"NumPy array shape: {arr.shape}, dtype: {arr.dtype}")
+
+# Manipulate audio samples (e.g., reduce volume by half)
+arr = arr * 0.5
+
+# Reconstruct a PCM object from the NumPy array
+new_pcm = PCM.from_numpy(
+    arr,
+    sample_rate=PCMSampleRate.RATE_44K,
+    channels=PCMChannels.STEREO,
+)
+```
+
+### 4. Batch Audio Encoders
+
+#### MP3 (`MP3Encoder`)
 
 ```python
 from python_ffmpeg_audio_io import (
@@ -77,7 +103,7 @@ encoder_vbr = MP3Encoder(
 encoder_vbr(pcm, "output_vbr.mp3", overwrite=True)
 ```
 
-### 4. Encode to AAC (`AACEncoder`)
+#### AAC (`AACEncoder`)
 
 ```python
 from python_ffmpeg_audio_io import (
@@ -98,7 +124,7 @@ encoder_aac_vbr = AACEncoder(
 encoder_aac_vbr(pcm, "output_vbr.aac", overwrite=True)
 ```
 
-### 5. Encode to AIFF (`AIFFEncoder`)
+#### AIFF (`AIFFEncoder`)
 
 ```python
 from python_ffmpeg_audio_io import AIFFEncoder, PCMCodec
@@ -108,7 +134,7 @@ encoder_aiff = AIFFEncoder(codec=PCMCodec.PCM_S16BE)
 encoder_aiff(pcm, "output.aiff", overwrite=True)
 ```
 
-### 6. Encode to Opus (`OpusEncoder`)
+#### Opus (`OpusEncoder`)
 
 ```python
 from python_ffmpeg_audio_io import (
@@ -127,7 +153,7 @@ encoder_opus = OpusEncoder(
 encoder_opus(pcm, "output.opus", overwrite=True)
 ```
 
-### 7. Encode to FLAC (`FLACEncoder`)
+#### FLAC (`FLACEncoder`)
 
 ```python
 from python_ffmpeg_audio_io import FLACEncoder, FLACEncoderCompressionLevel
@@ -136,6 +162,61 @@ from python_ffmpeg_audio_io import FLACEncoder, FLACEncoderCompressionLevel
 encoder_flac = FLACEncoder(compression_level=FLACEncoderCompressionLevel.Level_5)
 encoder_flac(pcm, "output.flac", overwrite=True)
 ```
+
+### 5. Stream Audio Decoding (`AudioStreamReader`)
+
+Read audio chunks sequentially as `PCM` instances without loading the entire file into memory:
+
+```python
+from python_ffmpeg_audio_io import AudioStreamReader, PCMCodec
+
+with AudioStreamReader(
+    "samples/sample.mp3",
+    pcm_codec=PCMCodec.PCM_F32LE,
+    chunk_frames=4096,
+) as reader:
+    print(f"Sample Rate: {reader.sample_rate.value} Hz")
+    print(f"Channels:    {reader.channels.value}")
+
+    for pcm_chunk in reader:
+        arr = pcm_chunk.as_numpy()
+        print(f"Read chunk with {len(arr)} frames")
+```
+
+### 6. Stream Audio Encoding (`StreamWriter`)
+
+Incrementally encode audio chunks directly to an output file. Stream writers are available for all supported formats (`MP3StreamWriter`, `AACStreamWriter`, `AIFFStreamWriter`, `OpusStreamWriter`, `FLACStreamWriter`).
+
+```python
+from python_ffmpeg_audio_io import (
+    AudioStreamReader,
+    MP3EncoderBitrate,
+    MP3StreamWriter,
+    PCMCodec,
+)
+
+# Stream read from source and stream encode directly to MP3 chunk-by-chunk
+with AudioStreamReader(
+    "samples/sample.wav",
+    pcm_codec=PCMCodec.PCM_F32LE,
+    chunk_frames=4096,
+) as reader:
+    with MP3StreamWriter(
+        "output.mp3",
+        sample_rate=reader.sample_rate,
+        channels=reader.channels,
+        pcm_format=reader.pcm_format,
+        bitrate=MP3EncoderBitrate.Kbps_192,
+        overwrite=True,
+    ) as writer:
+        for chunk in reader:
+            writer.write(chunk)
+
+    print(f"Frames written: {writer.frames_written}")
+    print(f"Bytes written:  {writer.bytes_written}")
+```
+
+You can also pass raw audio bytes via `writer.write_bytes(raw_bytes)`.
 
 ## Exception Hierarchy
 
@@ -146,7 +227,11 @@ PyFFmpegAudioIOError
 ├── FileReadError         (Missing, unreadable, or non-file input)
 ├── FileWriteError        (Existing file without overwrite, or unwritable target)
 ├── FFmpegError           (Subprocess execution failure with captured stderr)
-└── FFmpegNotFoundError   (FFmpeg or FFprobe not found in system PATH)
+├── FFmpegNotFoundError   (FFmpeg or FFprobe not found in system PATH)
+├── PCMFormatError        (Unsupported or misaligned PCM formats)
+└── AudioStreamError      (Base for streaming errors)
+    ├── StreamClosedError (Operation on a closed stream)
+    └── StreamBrokenError (Pipe disconnect or unexpected process termination)
 ```
 
 ## Development
@@ -155,9 +240,12 @@ PyFFmpegAudioIOError
 # Run tests
 uv run pytest
 
-# Check code formatting & lint
+# Check code formatting & linting
 uv run ruff check
 uv run ruff format
+
+# Static type checking
+uv run pyright
 ```
 
 ## License

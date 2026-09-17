@@ -1,0 +1,306 @@
+"""Audio stream reader module using FFmpeg pipe."""
+
+from __future__ import annotations
+
+import subprocess
+from collections.abc import Iterator
+from os import R_OK, PathLike, access
+from pathlib import Path
+from types import TracebackType
+
+from .exceptions import (
+    FFmpegError,
+    FFmpegNotFoundError,
+    FileReadError,
+    PyFFmpegAudioIOError,
+    StreamBrokenError,
+    StreamClosedError,
+)
+from .ffprobe import AudioInfo, get_audio_info
+from .pcm import PCM, PCMChannels, PCMCodec, PCMFormat, PCMSampleRate
+
+
+class AudioStreamReader:
+    """Stream reader for decoding audio files into raw PCM chunks using FFmpeg.
+
+    Attributes:
+        path: Path to the input audio file.
+        info: Audio metadata retrieved via FFprobe.
+        pcm_codec: The PCM codec used for decoding.
+        pcm_format: The PCM format corresponding to pcm_codec.
+        sample_rate: Sample rate of the decoded audio.
+        channels: Channel count of the decoded audio.
+        chunk_frames: Number of audio frames per chunk during iteration.
+        frame_size: Size in bytes of one audio frame.
+    """
+
+    path: Path
+    info: AudioInfo
+    pcm_codec: PCMCodec
+    pcm_format: PCMFormat
+    sample_rate: PCMSampleRate
+    channels: PCMChannels
+    chunk_frames: int
+    frame_size: int
+
+    _process: subprocess.Popen[bytes]
+    _closed: bool
+
+    def __init__(
+        self,
+        path: str | PathLike[str],
+        pcm_codec: PCMCodec = PCMCodec.PCM_F32LE,
+        chunk_frames: int = 1024,
+    ) -> None:
+        """Initialize AudioStreamReader and spawn the FFmpeg decoding process.
+
+        Args:
+            path: Path to the input audio file.
+            pcm_codec: The PCM codec to decode into (default: PCM_F32LE).
+            chunk_frames: Default frame count per chunk during reading (default: 1024).
+
+        Raises:
+            TypeError: If arguments are of incorrect type.
+            ValueError: If chunk_frames is not a positive integer.
+            FileReadError: If the audio file does not exist or is unreadable.
+            FFmpegNotFoundError: If FFmpeg or FFprobe executable is not in PATH.
+            FFmpegError: If FFmpeg fails to start or metadata probe fails.
+            PyFFmpegAudioIOError: If sample rate or channel count is unsupported.
+        """
+        if not isinstance(path, (str, PathLike)):
+            raise TypeError(
+                f"path must be a str or PathLike, got {type(path).__name__}"
+            )
+        if not isinstance(pcm_codec, PCMCodec):
+            t_name = type(pcm_codec).__name__
+            raise TypeError(f"pcm_codec must be an instance of PCMCodec, got {t_name}")
+        if not isinstance(chunk_frames, int) or isinstance(chunk_frames, bool):
+            raise TypeError(
+                f"chunk_frames must be an int, got {type(chunk_frames).__name__}"
+            )
+        if chunk_frames <= 0:
+            raise ValueError(f"chunk_frames must be positive, got {chunk_frames}")
+
+        audio_path = Path(path)
+        if not audio_path.exists():
+            raise FileReadError(f"Audio file not found: {audio_path}")
+        if not audio_path.is_file():
+            raise FileReadError(f"Audio file is not a regular file: {audio_path}")
+        if not access(audio_path, R_OK):
+            raise FileReadError(f"Audio file is not readable: {audio_path}")
+
+        self.path = audio_path
+        self.pcm_codec = pcm_codec
+        self.pcm_format = pcm_codec.pcm_format
+        self.chunk_frames = chunk_frames
+
+        self.info = get_audio_info(audio_path)
+
+        try:
+            self.channels = PCMChannels(self.info.channels)
+        except ValueError as e:
+            msg = (
+                f"Unsupported channel count '{self.info.channels}' "
+                f"in audio file: {audio_path}"
+            )
+            raise PyFFmpegAudioIOError(msg) from e
+
+        try:
+            self.sample_rate = PCMSampleRate(self.info.sample_rate)
+        except ValueError as e:
+            msg = (
+                f"Unsupported sample rate '{self.info.sample_rate}' "
+                f"in audio file: {audio_path}"
+            )
+            raise PyFFmpegAudioIOError(msg) from e
+
+        self.frame_size = self.pcm_format.bytes_per_sample * self.channels.value
+        self._closed = False
+        self._process = self._spawn_ffmpeg()
+
+    def _spawn_ffmpeg(self) -> subprocess.Popen[bytes]:
+        """Spawn the FFmpeg subprocess for streaming decode.
+
+        Returns:
+            subprocess.Popen[bytes]: The spawned FFmpeg subprocess.
+
+        Raises:
+            FFmpegNotFoundError: If FFmpeg executable is not in PATH.
+            FFmpegError: If spawning FFmpeg fails.
+        """
+        cmd = [
+            "ffmpeg",
+            "-i",
+            str(self.path),
+            "-v",
+            "error",
+            "-f",
+            self.pcm_format.value,
+            "-acodec",
+            self.pcm_codec.value,
+            "-ar",
+            str(self.sample_rate.value),
+            "-ac",
+            str(self.channels.value),
+            "pipe:1",
+        ]
+
+        try:
+            return subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+        except OSError as e:
+            if e.errno == 2:
+                raise FFmpegNotFoundError(
+                    "ffmpeg executable not found. Please ensure FFmpeg is in PATH."
+                ) from e
+            raise FFmpegError(f"Failed to start ffmpeg process: {e}") from e
+
+    @property
+    def closed(self) -> bool:
+        """Return True if the reader stream has been closed."""
+        return self._closed
+
+    def _read_exact(self, n_bytes: int) -> bytes:
+        """Read up to n_bytes from stdout until buffer is filled or EOF."""
+        stdout = self._process.stdout
+        if stdout is None:
+            raise StreamClosedError("Stream stdout pipe is unavailable.")
+
+        buffer = bytearray()
+        while len(buffer) < n_bytes:
+            chunk = stdout.read(n_bytes - len(buffer))
+            if not chunk:
+                break
+            buffer.extend(chunk)
+
+        return bytes(buffer)
+
+    def read(self, frames: int | None = None) -> PCM | None:
+        """Read a chunk of audio frames as a PCM instance.
+
+        Args:
+            frames: Number of frames to read. If None, uses chunk_frames.
+
+        Returns:
+            PCM | None: Decoded PCM data for this chunk, or None on EOF.
+
+        Raises:
+            StreamClosedError: If stream is closed.
+            ValueError: If frames is non-positive.
+            StreamBrokenError: If stream pipe breaks or ends unaligned.
+            FFmpegError: If FFmpeg process terminated with error.
+        """
+        if self._closed:
+            raise StreamClosedError("Cannot read from a closed AudioStreamReader.")
+
+        target_frames = self.chunk_frames if frames is None else frames
+        if not isinstance(target_frames, int) or isinstance(target_frames, bool):
+            raise TypeError(
+                f"frames must be an int, got {type(target_frames).__name__}"
+            )
+        if target_frames <= 0:
+            raise ValueError(f"frames must be positive, got {target_frames}")
+
+        n_bytes = target_frames * self.frame_size
+        raw_bytes = self._read_exact(n_bytes)
+
+        if not raw_bytes:
+            # Check if process ended cleanly or errored
+            returncode = self._process.poll()
+            if returncode is not None and returncode != 0:
+                stderr = (
+                    self._process.stderr.read().decode("utf-8", errors="ignore").strip()
+                    if self._process.stderr
+                    else ""
+                )
+                err_msg = (
+                    f"FFmpeg process terminated unexpectedly with code "
+                    f"{returncode}: {stderr}"
+                )
+                raise FFmpegError(err_msg, stderr=stderr)
+            return None
+
+        if len(raw_bytes) % self.frame_size != 0:
+            stderr = (
+                self._process.stderr.read().decode("utf-8", errors="ignore").strip()
+                if self._process.stderr
+                else ""
+            )
+            raise StreamBrokenError(
+                f"Stream ended with unaligned data ({len(raw_bytes)} bytes, "
+                f"frame size is {self.frame_size} bytes): {stderr}",
+                stderr=stderr,
+            )
+
+        return PCM(
+            data=raw_bytes,
+            format=self.pcm_format,
+            sample_rate=self.sample_rate,
+            channels=self.channels,
+        )
+
+    def read_bytes(self, frames: int | None = None) -> bytes:
+        """Read a chunk of audio frames as raw bytes.
+
+        Args:
+            frames: Number of frames to read. If None, uses chunk_frames.
+
+        Returns:
+            bytes: Raw PCM bytes, or empty bytes on EOF.
+        """
+        pcm = self.read(frames)
+        return bytes(pcm.data) if pcm is not None else b""
+
+    def __iter__(self) -> Iterator[PCM]:
+        """Iterate over audio chunks as PCM instances."""
+        while not self._closed:
+            chunk = self.read()
+            if chunk is None:
+                break
+            yield chunk
+
+    def __enter__(self) -> AudioStreamReader:
+        """Enter context manager."""
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        """Exit context manager and close reader stream."""
+        self.close()
+
+    def close(self) -> None:
+        """Close the stream reader and terminate FFmpeg subprocess."""
+        if self._closed:
+            return
+
+        self._closed = True
+
+        if self._process.stdout is not None:
+            try:
+                self._process.stdout.close()
+            except OSError:
+                pass
+
+        if self._process.poll() is None:
+            self._process.terminate()
+            try:
+                self._process.wait(timeout=1.0)
+            except subprocess.TimeoutExpired:
+                self._process.kill()
+                self._process.wait()
+
+        if self._process.stderr is not None:
+            try:
+                self._process.stderr.close()
+            except OSError:
+                pass
+
+
+__all__ = ["AudioStreamReader"]
