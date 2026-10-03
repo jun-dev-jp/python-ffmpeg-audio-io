@@ -1,0 +1,240 @@
+"""Unit tests for the decode() function."""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any, cast
+
+import pytest
+
+from python_ffmpeg_audio_io import (
+    PCM,
+    AudioTypeError,
+    AudioValueError,
+    FileReadError,
+    MP3Encoder,
+    PCMChannels,
+    PCMCodec,
+    PCMFormat,
+    PCMSampleRate,
+    decode,
+)
+
+
+def test_decode_default_parameters() -> None:
+    """Test decode() with default parameters preserving original attributes."""
+    sample_path = Path("samples/sample.mp3")
+    pcm = decode(sample_path)
+
+    assert isinstance(pcm, PCM)
+    assert pcm.format == PCMFormat.F32LE
+    assert pcm.sample_rate == PCMSampleRate.RATE_44K
+    assert pcm.channels == PCMChannels.MONO
+    assert len(pcm.data) > 0
+
+
+def test_decode_resampling() -> None:
+    """Test decode() with target sample rate conversion (resampling)."""
+    sample_path = Path("samples/sample.mp3")
+
+    # Resample using PCMSampleRate enum
+    pcm_16k = decode(
+        sample_path,
+        sample_rate=PCMSampleRate.RATE_16K,
+        duration=1.0,
+    )
+    assert pcm_16k.sample_rate == PCMSampleRate.RATE_16K
+    # 1.0s * 16000 samples/s * 1 ch * 4 bytes/sample = 64000 bytes
+    assert len(pcm_16k.data) == 64000
+
+    # Resample using integer sample rate
+    pcm_48k = decode(
+        sample_path,
+        sample_rate=48000,
+        duration=1.0,
+    )
+    assert pcm_48k.sample_rate == PCMSampleRate.RATE_48K
+    # 1.0s * 48000 samples/s * 1 ch * 4 bytes/sample = 192000 bytes
+    assert len(pcm_48k.data) == 192000
+
+
+def test_decode_channel_conversion(tmp_path: Path) -> None:
+    """Test decode() with channel conversion (upmix and downmix)."""
+    sample_path = Path("samples/sample.mp3")
+
+    # Upmix mono to stereo using PCMChannels enum
+    pcm_stereo = decode(
+        sample_path,
+        channels=PCMChannels.STEREO,
+        duration=1.0,
+    )
+    assert pcm_stereo.channels == PCMChannels.STEREO
+    # 1.0s * 44100 samples/s * 2 ch * 4 bytes/sample = 352800 bytes
+    assert len(pcm_stereo.data) == 352800
+
+    # Upmix mono to stereo using integer channel count
+    pcm_stereo_int = decode(
+        sample_path,
+        channels=2,
+        duration=1.0,
+    )
+    assert pcm_stereo_int.channels == PCMChannels.STEREO
+    assert len(pcm_stereo_int.data) == 352800
+
+    # Save stereo audio to test downmixing from stereo to mono
+    stereo_file = tmp_path / "stereo.mp3"
+    encoder = MP3Encoder()
+    encoder(pcm_stereo, stereo_file)
+
+    pcm_mono = decode(
+        stereo_file,
+        channels=PCMChannels.MONO,
+        duration=1.0,
+    )
+    assert pcm_mono.channels == PCMChannels.MONO
+    assert len(pcm_mono.data) == 176400
+
+
+def test_decode_seek_and_duration() -> None:
+    """Test decode() with start_time and duration interval specification."""
+    sample_path = Path("samples/sample.mp3")
+
+    # Decode with specific duration
+    pcm_cut = decode(
+        sample_path,
+        duration=0.5,
+        pcm_codec=PCMCodec.PCM_S16LE,
+    )
+    assert pcm_cut.format == PCMFormat.S16LE
+    # 0.5s * 44100 * 1 ch * 2 bytes/sample = 44100 bytes
+    assert len(pcm_cut.data) == 44100
+
+    # Decode with start_time and duration
+    pcm_seek_cut = decode(
+        sample_path,
+        start_time=1.5,
+        duration=2.0,
+        pcm_codec=PCMCodec.PCM_S16LE,
+    )
+    # 2.0s * 44100 * 1 ch * 2 bytes/sample = 176400 bytes
+    assert len(pcm_seek_cut.data) == 176400
+
+    # Combined resampling, channel conversion, seek, and duration
+    pcm_combined = decode(
+        sample_path,
+        sample_rate=PCMSampleRate.RATE_16K,
+        channels=PCMChannels.STEREO,
+        start_time=2.0,
+        duration=1.5,
+        pcm_codec=PCMCodec.PCM_F32LE,
+    )
+    assert pcm_combined.sample_rate == PCMSampleRate.RATE_16K
+    assert pcm_combined.channels == PCMChannels.STEREO
+    # 1.5s * 16000 * 2 ch * 4 bytes/sample = 192000 bytes
+    assert len(pcm_combined.data) == 192000
+
+
+def test_decode_seek_past_eof() -> None:
+    """Test decode() seeking past end of audio file returns empty PCM."""
+    sample_path = Path("samples/sample.mp3")
+    pcm = decode(sample_path, start_time=100.0)
+
+    assert isinstance(pcm, PCM)
+    assert len(pcm.data) == 0
+
+
+def test_decode_input_validation(tmp_path: Path) -> None:
+    """Test argument validation for decode()."""
+    sample_path = Path("samples/sample.mp3")
+
+    # Invalid path type
+    with pytest.raises(AudioTypeError, match="path must be a str or PathLike"):
+        _ = decode(cast(Any, 12345))
+
+    # Non-existent file
+    non_existent = tmp_path / "not_found.mp3"
+    with pytest.raises(FileReadError, match="Audio file not found"):
+        _ = decode(non_existent)
+
+    # Invalid pcm_codec type
+    with pytest.raises(
+        AudioTypeError, match="pcm_codec must be an instance of PCMCodec"
+    ):
+        _ = decode(sample_path, pcm_codec=cast(Any, "invalid"))
+
+    # Invalid sample_rate type
+    with pytest.raises(
+        AudioTypeError, match="sample_rate must be PCMSampleRate, int, or None"
+    ):
+        _ = decode(sample_path, sample_rate=cast(Any, "44100"))
+
+    with pytest.raises(
+        AudioTypeError, match="sample_rate must be PCMSampleRate, int, or None"
+    ):
+        _ = decode(sample_path, sample_rate=cast(Any, True))
+
+    # Unsupported sample_rate int
+    with pytest.raises(AudioValueError, match="Unsupported sample rate: 12345"):
+        _ = decode(sample_path, sample_rate=12345)
+
+    with pytest.raises(AudioValueError, match="Unsupported sample rate: -44100"):
+        _ = decode(sample_path, sample_rate=-44100)
+
+    # Invalid channels type
+    with pytest.raises(
+        AudioTypeError, match="channels must be PCMChannels, int, or None"
+    ):
+        _ = decode(sample_path, channels=cast(Any, "stereo"))
+
+    with pytest.raises(
+        AudioTypeError, match="channels must be PCMChannels, int, or None"
+    ):
+        _ = decode(sample_path, channels=cast(Any, True))
+
+    # Unsupported channels int
+    with pytest.raises(AudioValueError, match="Unsupported channel count: 10"):
+        _ = decode(sample_path, channels=10)
+
+    with pytest.raises(AudioValueError, match="Unsupported channel count: -1"):
+        _ = decode(sample_path, channels=-1)
+
+    # Invalid start_time type
+    with pytest.raises(
+        AudioTypeError, match="start_time must be a float, int, or None"
+    ):
+        _ = decode(sample_path, start_time=cast(Any, "1.0"))
+
+    with pytest.raises(
+        AudioTypeError, match="start_time must be a float, int, or None"
+    ):
+        _ = decode(sample_path, start_time=cast(Any, True))
+
+    # Invalid start_time value
+    with pytest.raises(AudioValueError, match="start_time must be non-negative"):
+        _ = decode(sample_path, start_time=-1.0)
+
+    with pytest.raises(AudioValueError, match="start_time must be a finite number"):
+        _ = decode(sample_path, start_time=float("nan"))
+
+    with pytest.raises(AudioValueError, match="start_time must be a finite number"):
+        _ = decode(sample_path, start_time=float("inf"))
+
+    # Invalid duration type
+    with pytest.raises(AudioTypeError, match="duration must be a float, int, or None"):
+        _ = decode(sample_path, duration=cast(Any, "2.0"))
+
+    with pytest.raises(AudioTypeError, match="duration must be a float, int, or None"):
+        _ = decode(sample_path, duration=cast(Any, False))
+
+    # Invalid duration value
+    with pytest.raises(AudioValueError, match="duration must be positive"):
+        _ = decode(sample_path, duration=0)
+
+    with pytest.raises(AudioValueError, match="duration must be positive"):
+        _ = decode(sample_path, duration=-1.5)
+
+    with pytest.raises(AudioValueError, match="duration must be a finite number"):
+        _ = decode(sample_path, duration=float("nan"))
+
+    with pytest.raises(AudioValueError, match="duration must be a finite number"):
+        _ = decode(sample_path, duration=float("inf"))

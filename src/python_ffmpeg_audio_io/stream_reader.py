@@ -8,6 +8,12 @@ from os import R_OK, PathLike, access
 from pathlib import Path
 from types import TracebackType
 
+from ._validation import (
+    validate_channels_opt,
+    validate_duration,
+    validate_sample_rate_opt,
+    validate_start_time,
+)
 from .exceptions import (
     AudioTypeError,
     AudioValueError,
@@ -33,6 +39,8 @@ class AudioStreamReader:
         channels: Channel count of the decoded audio.
         chunk_frames: Number of audio frames per chunk during iteration.
         frame_size: Size in bytes of one audio frame.
+        start_time: Starting offset in seconds for decoding, or None.
+        duration: Duration in seconds to decode, or None.
     """
 
     path: Path
@@ -43,6 +51,8 @@ class AudioStreamReader:
     channels: PCMChannels
     chunk_frames: int
     frame_size: int
+    start_time: float | None
+    duration: float | None
 
     _process: subprocess.Popen[bytes]
     _closed: bool
@@ -52,6 +62,10 @@ class AudioStreamReader:
         path: str | PathLike[str],
         pcm_codec: PCMCodec = PCMCodec.PCM_F32LE,
         chunk_frames: int = 1024,
+        sample_rate: PCMSampleRate | int | None = None,
+        channels: PCMChannels | int | None = None,
+        start_time: float | int | None = None,
+        duration: float | int | None = None,
     ) -> None:
         """Initialize AudioStreamReader and spawn the FFmpeg decoding process.
 
@@ -59,11 +73,19 @@ class AudioStreamReader:
             path: Path to the input audio file.
             pcm_codec: The PCM codec to decode into (default: PCM_F32LE).
             chunk_frames: Default frame count per chunk during reading (default: 1024).
+            sample_rate: Target sample rate for resampling, or None to keep original
+                (default: None).
+            channels: Target channels for channel conversion, or None to keep original
+                (default: None).
+            start_time: Starting offset in seconds to seek before decoding, or None
+                (default: None).
+            duration: Duration in seconds of audio to decode, or None to decode to end
+                (default: None).
 
         Raises:
             AudioTypeError: If arguments are of incorrect type.
-            AudioValueError: If chunk_frames is not positive or audio metadata is
-                unsupported.
+            AudioValueError: If chunk_frames is not positive, start_time/duration
+                are invalid, or sample_rate/channels are unsupported.
             FileReadError: If the audio file does not exist or is unreadable.
             FFmpegNotFoundError: If FFmpeg or FFprobe executable is not in PATH.
             FFmpegError: If FFmpeg fails to start or metadata probe fails.
@@ -84,6 +106,11 @@ class AudioStreamReader:
         if chunk_frames <= 0:
             raise AudioValueError(f"chunk_frames must be positive, got {chunk_frames}")
 
+        target_sample_rate = validate_sample_rate_opt(sample_rate)
+        target_channels = validate_channels_opt(channels)
+        self.start_time = validate_start_time(start_time)
+        self.duration = validate_duration(duration)
+
         audio_path = Path(path)
         if not audio_path.exists():
             raise FileReadError(f"Audio file not found: {audio_path}")
@@ -99,23 +126,29 @@ class AudioStreamReader:
 
         self.info = get_audio_info(audio_path)
 
-        try:
-            self.channels = PCMChannels(self.info.channels)
-        except ValueError as e:
-            msg = (
-                f"Unsupported channel count '{self.info.channels}' "
-                f"in audio file: {audio_path}"
-            )
-            raise AudioValueError(msg) from e
+        if target_channels is not None:
+            self.channels = target_channels
+        else:
+            try:
+                self.channels = PCMChannels(self.info.channels)
+            except ValueError as e:
+                msg = (
+                    f"Unsupported channel count '{self.info.channels}' "
+                    f"in audio file: {audio_path}"
+                )
+                raise AudioValueError(msg) from e
 
-        try:
-            self.sample_rate = PCMSampleRate(self.info.sample_rate)
-        except ValueError as e:
-            msg = (
-                f"Unsupported sample rate '{self.info.sample_rate}' "
-                f"in audio file: {audio_path}"
-            )
-            raise AudioValueError(msg) from e
+        if target_sample_rate is not None:
+            self.sample_rate = target_sample_rate
+        else:
+            try:
+                self.sample_rate = PCMSampleRate(self.info.sample_rate)
+            except ValueError as e:
+                msg = (
+                    f"Unsupported sample rate '{self.info.sample_rate}' "
+                    f"in audio file: {audio_path}"
+                )
+                raise AudioValueError(msg) from e
 
         self.frame_size = self.pcm_format.bytes_per_sample * self.channels.value
         self._closed = False
@@ -131,22 +164,32 @@ class AudioStreamReader:
             FFmpegNotFoundError: If FFmpeg executable is not in PATH.
             FFmpegError: If spawning FFmpeg fails.
         """
-        cmd = [
-            "ffmpeg",
-            "-i",
-            str(self.path),
-            "-v",
-            "error",
-            "-f",
-            self.pcm_format.value,
-            "-acodec",
-            self.pcm_codec.value,
-            "-ar",
-            str(self.sample_rate.value),
-            "-ac",
-            str(self.channels.value),
-            "pipe:1",
-        ]
+        cmd = ["ffmpeg"]
+        if self.start_time is not None:
+            cmd.extend(["-ss", str(self.start_time)])
+        cmd.extend(
+            [
+                "-i",
+                str(self.path),
+                "-v",
+                "error",
+            ]
+        )
+        if self.duration is not None:
+            cmd.extend(["-t", str(self.duration)])
+        cmd.extend(
+            [
+                "-f",
+                self.pcm_format.value,
+                "-acodec",
+                self.pcm_codec.value,
+                "-ar",
+                str(self.sample_rate.value),
+                "-ac",
+                str(self.channels.value),
+                "pipe:1",
+            ]
+        )
 
         try:
             return subprocess.Popen(

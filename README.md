@@ -51,7 +51,7 @@ print(f"Bitrate:     {info.bit_rate} bps")
 ### 2. Decode Audio to PCM (`decode`)
 
 ```python
-from python_ffmpeg_audio_io import PCMCodec, decode
+from python_ffmpeg_audio_io import PCMChannels, PCMCodec, PCMSampleRate, decode
 
 # Decode any supported audio file to raw PCM bytes (default: 32-bit float LE)
 pcm = decode("samples/sample.mp3", pcm_codec=PCMCodec.PCM_F32LE)
@@ -60,6 +60,15 @@ print(f"Format:           {pcm.format.value}")  # e.g., 'f32le'
 print(f"Sample Rate:      {pcm.sample_rate.value}")  # e.g., 44100
 print(f"Channels:         {pcm.channels.value}")  # e.g., 2 (STEREO)
 print(f"Raw Bytes Length: {len(pcm.data)}")
+
+# Resampling, channel conversion, and time range trimming (seek & cut)
+pcm_trimmed = decode(
+    "samples/sample.mp3",
+    sample_rate=PCMSampleRate.RATE_16K,  # or int 16000
+    channels=PCMChannels.STEREO,  # or int 2 (upmix/downmix)
+    start_time=1.0,  # start offset in seconds
+    duration=2.5,  # duration to decode in seconds
+)
 ```
 
 ### 3. NumPy Interoperability (`as_numpy` / `from_numpy`)
@@ -169,15 +178,24 @@ encoder_flac(pcm, "output.flac", overwrite=True)
 
 ### 5. Stream Audio Decoding (`AudioStreamReader`)
 
-Read audio chunks sequentially as `PCM` instances without loading the entire file into memory:
+Read audio chunks sequentially as `PCM` instances without loading the entire file into memory. Also supports resampling, channel conversion, and segment seeking:
 
 ```python
-from python_ffmpeg_audio_io import AudioStreamReader, PCMCodec
+from python_ffmpeg_audio_io import (
+    AudioStreamReader,
+    PCMChannels,
+    PCMCodec,
+    PCMSampleRate,
+)
 
 with AudioStreamReader(
     "samples/sample.mp3",
     pcm_codec=PCMCodec.PCM_F32LE,
     chunk_frames=4096,
+    sample_rate=PCMSampleRate.RATE_16K,  # optional resampling
+    channels=PCMChannels.STEREO,  # optional channel conversion
+    start_time=1.0,  # optional start seek (seconds)
+    duration=5.0,  # optional duration (seconds)
 ) as reader:
     print(f"Sample Rate: {reader.sample_rate.value} Hz")
     print(f"Channels:    {reader.channels.value}")

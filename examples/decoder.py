@@ -25,6 +25,19 @@ def main() -> None:
         print(f"  - Channels: {pcm.channels.value} ({pcm.channels.name})")
         print(f"  - Format: {pcm.format.value} ({pcm.format.name})")
         print(f"  - Decoded Data Size: {len(pcm.data)} bytes")
+
+        # Decode with resampling, stereo conversion, seeking and trimming
+        print("\nDecoding with resampling (16kHz), stereo upmixing, and 2-second cut:")
+        pcm_converted = decode(
+            sample_path,
+            sample_rate=16000,
+            channels=2,
+            start_time=1.0,
+            duration=2.0,
+        )
+        print(f"  - Sample Rate: {pcm_converted.sample_rate.value} Hz")
+        print(f"  - Channels: {pcm_converted.channels.value}")
+        print(f"  - Decoded Data Size: {len(pcm_converted.data)} bytes")
     except (FileReadError, FFmpegError, PyFFmpegAudioIOError) as e:
         print(f"Error decoding audio: {e}")
 
