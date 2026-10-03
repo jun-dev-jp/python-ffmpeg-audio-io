@@ -377,6 +377,8 @@ class BaseAudioStreamWriter(ABC):
                 self._process.stdin.close()
             except OSError:
                 pass
+            # Avoid ValueError: flush of closed file in Python <= 3.12 communicate()
+            self._process.stdin = None
 
         try:
             _, stderr_bytes = self._process.communicate(timeout=15.0)

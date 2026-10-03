@@ -1,7 +1,8 @@
 # python-ffmpeg-audio-io
 
+[![CI](https://github.com/jun-dev-jp/python-ffmpeg-audio-io/actions/workflows/tests.yml/badge.svg)](https://github.com/jun-dev-jp/python-ffmpeg-audio-io/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.14+](https://img.shields.io/badge/python-3.14+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 
 A lightweight, robust Python audio I/O library powered by FFmpeg, designed without heavy third-party wrappers (`ffmpeg-python`, `pydub`, etc.).
 

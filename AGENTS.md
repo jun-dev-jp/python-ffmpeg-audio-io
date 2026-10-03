@@ -9,7 +9,7 @@ A lightweight and robust audio I/O library that directly wraps FFmpeg / FFprobe 
    - Use `numpy` for handling raw data and numerical arrays.
 2. **Package & Environment Management**:
    - Use `uv` for dependency management, virtual environment setup, and running tests.
-   - Target Python version: **Python 3.14** (compatible with 3.13+).
+   - Target Python version: **Python 3.14** (compatible with 3.11+).
 3. **Unified Interface**:
    - **Decoding**: Regardless of the input file format (MP3, WAV, AIFF, FLAC, AAC, etc.), decode to a `PCM` object holding raw PCM data via a unified API (`decode()` function).
    - **Metadata Extraction**: Retrieve audio metadata such as sample rate, channel count, bit rate, and duration via `get_audio_info()`.
