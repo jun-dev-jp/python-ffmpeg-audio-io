@@ -51,4 +51,7 @@ A lightweight and robust audio I/O library that directly wraps FFmpeg / FFprobe 
 - **Static Type Checking**: Use Pyright (`uv run pyright`). Strictly adhere to PEP 561 (`py.typed`) and type annotations.
 - **Docstrings**: All public APIs (modules, classes, functions, methods) must have Google-style docstrings (`Args`, `Returns`, `Raises`, etc.).
 - **Linter / Formatter**: `uv run ruff check` / `uv run ruff format`
-- **Testing**: `uv run pytest`
+- **Testing & Token Conservation Policy**:
+  - Run tests locally **only on Python 3.14** (`uv run pytest` or targeted tests). Do not test across multiple Python versions (3.11, 3.12, 3.13) locally without explicit prior user confirmation.
+  - Multi-version and multi-OS matrix testing is delegated to GitHub Actions CI to avoid excessive token consumption.
+  - Prefer focused, minimal test runs (e.g. `uv run pytest tests/test_xxx.py -q`) during iterative development.
