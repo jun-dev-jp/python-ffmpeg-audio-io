@@ -125,6 +125,40 @@ def test_decode_seek_and_duration() -> None:
     assert len(pcm_combined.data) == 192000
 
 
+def test_decode_timecode() -> None:
+    """Test decode() with string timecode specifications."""
+    sample_path = Path("samples/sample.mp3")
+
+    # Timecode format "MM:SS"
+    pcm_mmss = decode(
+        sample_path,
+        start_time="00:01",
+        duration="00:02",
+        pcm_codec=PCMCodec.PCM_S16LE,
+    )
+    # 2.0s * 44100 * 1 ch * 2 bytes = 176400 bytes
+    assert len(pcm_mmss.data) == 176400
+
+    # Timecode format "HH:MM:SS.mmm"
+    pcm_hhmmss = decode(
+        sample_path,
+        start_time="00:00:01.500",
+        duration="00:00:00.500",
+        pcm_codec=PCMCodec.PCM_S16LE,
+    )
+    # 0.5s * 44100 * 1 ch * 2 bytes = 44100 bytes
+    assert len(pcm_hhmmss.data) == 44100
+
+    # Output matches numeric float specification
+    pcm_float = decode(
+        sample_path,
+        start_time=1.5,
+        duration=0.5,
+        pcm_codec=PCMCodec.PCM_S16LE,
+    )
+    assert pcm_hhmmss.data == pcm_float.data
+
+
 def test_decode_seek_past_eof() -> None:
     """Test decode() seeking past end of audio file returns empty PCM."""
     sample_path = Path("samples/sample.mp3")
@@ -193,12 +227,12 @@ def test_decode_input_validation(tmp_path: Path) -> None:
 
     # Invalid start_time type
     with pytest.raises(
-        AudioTypeError, match="start_time must be a float, int, or None"
+        AudioTypeError, match="start_time must be a float, int, str, or None"
     ):
-        _ = decode(sample_path, start_time=cast(Any, "1.0"))
+        _ = decode(sample_path, start_time=cast(Any, []))
 
     with pytest.raises(
-        AudioTypeError, match="start_time must be a float, int, or None"
+        AudioTypeError, match="start_time must be a float, int, str, or None"
     ):
         _ = decode(sample_path, start_time=cast(Any, True))
 
@@ -212,11 +246,31 @@ def test_decode_input_validation(tmp_path: Path) -> None:
     with pytest.raises(AudioValueError, match="start_time must be a finite number"):
         _ = decode(sample_path, start_time=float("inf"))
 
-    # Invalid duration type
-    with pytest.raises(AudioTypeError, match="duration must be a float, int, or None"):
-        _ = decode(sample_path, duration=cast(Any, "2.0"))
+    # Invalid start_time timecode strings
+    with pytest.raises(AudioValueError, match="Timecode string cannot be empty"):
+        _ = decode(sample_path, start_time="")
 
-    with pytest.raises(AudioTypeError, match="duration must be a float, int, or None"):
+    with pytest.raises(AudioValueError, match="Invalid timecode string"):
+        _ = decode(sample_path, start_time="invalid")
+
+    with pytest.raises(AudioValueError, match="Minutes must be in range"):
+        _ = decode(sample_path, start_time="00:60:00")
+
+    with pytest.raises(AudioValueError, match="Seconds must be in range"):
+        _ = decode(sample_path, start_time="00:00:60")
+
+    with pytest.raises(AudioValueError, match="Minutes cannot be negative"):
+        _ = decode(sample_path, start_time="-01:00")
+
+    # Invalid duration type
+    with pytest.raises(
+        AudioTypeError, match="duration must be a float, int, str, or None"
+    ):
+        _ = decode(sample_path, duration=cast(Any, {}))
+
+    with pytest.raises(
+        AudioTypeError, match="duration must be a float, int, str, or None"
+    ):
         _ = decode(sample_path, duration=cast(Any, False))
 
     # Invalid duration value
@@ -228,6 +282,16 @@ def test_decode_input_validation(tmp_path: Path) -> None:
 
     with pytest.raises(AudioValueError, match="duration must be a finite number"):
         _ = decode(sample_path, duration=float("nan"))
+
+    with pytest.raises(AudioValueError, match="duration must be a finite number"):
+        _ = decode(sample_path, duration=float("inf"))
+
+    # Invalid duration timecode strings
+    with pytest.raises(AudioValueError, match="duration must be positive"):
+        _ = decode(sample_path, duration="00:00:00")
+
+    with pytest.raises(AudioValueError, match="Invalid timecode string"):
+        _ = decode(sample_path, duration="not_a_time")
 
     with pytest.raises(AudioValueError, match="duration must be a finite number"):
         _ = decode(sample_path, duration=float("inf"))

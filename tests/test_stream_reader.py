@@ -216,6 +216,24 @@ def test_stream_reader_seek_and_duration_matches_decoder() -> None:
     assert streamed_bytes == decoded.data
 
 
+def test_stream_reader_timecode() -> None:
+    """Test AudioStreamReader with string timecode parameters."""
+    sample_path = Path("samples/sample.mp3")
+
+    with AudioStreamReader(
+        sample_path,
+        start_time="00:00:01",
+        duration="00:00:01.500",
+        chunk_frames=1024,
+    ) as reader:
+        assert reader.start_time == 1.0
+        assert reader.duration == 1.5
+        chunks = list(reader)
+        total_bytes = b"".join(chunk.data for chunk in chunks)
+        # 1.5s * 44100 * 1 ch * 4 bytes = 264600 bytes
+        assert len(total_bytes) == 264600
+
+
 def test_stream_reader_invalid_new_parameters() -> None:
     """Test input validation for new parameters in AudioStreamReader."""
     sample_path = Path("samples/sample.mp3")
@@ -259,10 +277,14 @@ def test_stream_reader_invalid_new_parameters() -> None:
         _ = AudioStreamReader(sample_path, channels=cast(Any, True))
 
     # start_time validation
-    with pytest.raises(TypeError, match="start_time must be a float, int, or None"):
-        _ = AudioStreamReader(sample_path, start_time=cast(Any, "1.0"))
+    with pytest.raises(
+        TypeError, match="start_time must be a float, int, str, or None"
+    ):
+        _ = AudioStreamReader(sample_path, start_time=cast(Any, []))
 
-    with pytest.raises(TypeError, match="start_time must be a float, int, or None"):
+    with pytest.raises(
+        TypeError, match="start_time must be a float, int, str, or None"
+    ):
         _ = AudioStreamReader(sample_path, start_time=cast(Any, False))
 
     with pytest.raises(ValueError, match="start_time must be non-negative"):
@@ -271,11 +293,14 @@ def test_stream_reader_invalid_new_parameters() -> None:
     with pytest.raises(ValueError, match="start_time must be a finite number"):
         _ = AudioStreamReader(sample_path, start_time=float("nan"))
 
-    # duration validation
-    with pytest.raises(TypeError, match="duration must be a float, int, or None"):
-        _ = AudioStreamReader(sample_path, duration=cast(Any, "2.0"))
+    with pytest.raises(ValueError, match="Invalid timecode string"):
+        _ = AudioStreamReader(sample_path, start_time="bad_timecode")
 
-    with pytest.raises(TypeError, match="duration must be a float, int, or None"):
+    # duration validation
+    with pytest.raises(TypeError, match="duration must be a float, int, str, or None"):
+        _ = AudioStreamReader(sample_path, duration=cast(Any, {}))
+
+    with pytest.raises(TypeError, match="duration must be a float, int, str, or None"):
         _ = AudioStreamReader(sample_path, duration=cast(Any, True))
 
     with pytest.raises(ValueError, match="duration must be positive"):
@@ -286,3 +311,6 @@ def test_stream_reader_invalid_new_parameters() -> None:
 
     with pytest.raises(ValueError, match="duration must be a finite number"):
         _ = AudioStreamReader(sample_path, duration=float("inf"))
+
+    with pytest.raises(ValueError, match="duration must be positive"):
+        _ = AudioStreamReader(sample_path, duration="00:00:00")

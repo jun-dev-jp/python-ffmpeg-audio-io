@@ -64,8 +64,8 @@ class AudioStreamReader:
         chunk_frames: int = 1024,
         sample_rate: PCMSampleRate | None = None,
         channels: PCMChannels | None = None,
-        start_time: float | int | None = None,
-        duration: float | int | None = None,
+        start_time: float | int | str | None = None,
+        duration: float | int | str | None = None,
     ) -> None:
         """Initialize AudioStreamReader and spawn the FFmpeg decoding process.
 
@@ -77,10 +77,10 @@ class AudioStreamReader:
                 (default: None).
             channels: Target channels for channel conversion, or None to keep original
                 (default: None).
-            start_time: Starting offset in seconds to seek before decoding, or None
-                (default: None).
-            duration: Duration in seconds of audio to decode, or None to decode to end
-                (default: None).
+            start_time: Starting offset in seconds or timecode string (e.g. "00:01:30")
+                to seek before decoding, or None (default: None).
+            duration: Duration in seconds or timecode string (e.g. "00:00:10") of audio
+                to decode, or None to decode to end (default: None).
 
         Raises:
             AudioTypeError: If arguments are of incorrect type.

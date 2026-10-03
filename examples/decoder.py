@@ -26,14 +26,17 @@ def main() -> None:
         print(f"  - Format: {pcm.format.value} ({pcm.format.name})")
         print(f"  - Decoded Data Size: {len(pcm.data)} bytes")
 
-        # Decode with resampling, stereo conversion, seeking and trimming
-        print("\nDecoding with resampling (16kHz), stereo upmixing, and 2-second cut:")
+        # Decode with resampling, stereo conversion, seeking and trimming with timecode
+        print(
+            "\nDecoding with resampling (16kHz), stereo upmix, "
+            "and 2-second cut (timecodes):"
+        )
         pcm_converted = decode(
             sample_path,
             sample_rate=PCMSampleRate.RATE_16K,
             channels=PCMChannels.STEREO,
-            start_time=1.0,
-            duration=2.0,
+            start_time="00:00:01",
+            duration="00:00:02",
         )
         print(f"  - Sample Rate: {pcm_converted.sample_rate.value} Hz")
         print(f"  - Channels: {pcm_converted.channels.value}")

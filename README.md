@@ -62,12 +62,13 @@ print(f"Channels:         {pcm.channels.value}")  # e.g., 2 (STEREO)
 print(f"Raw Bytes Length: {len(pcm.data)}")
 
 # Resampling, channel conversion, and time range trimming (seek & cut)
+# start_time and duration accept numeric seconds or timecode strings (e.g., "00:01:30.500", "01:23:45", "02:15")
 pcm_trimmed = decode(
     "samples/sample.mp3",
     sample_rate=PCMSampleRate.RATE_16K,
     channels=PCMChannels.STEREO,
-    start_time=1.0,  # start offset in seconds
-    duration=2.5,  # duration to decode in seconds
+    start_time="00:00:01.000",  # start offset (seconds or timecode)
+    duration="00:00:02.500",  # duration to decode (seconds or timecode)
 )
 ```
 
@@ -194,8 +195,8 @@ with AudioStreamReader(
     chunk_frames=4096,
     sample_rate=PCMSampleRate.RATE_16K,  # optional resampling
     channels=PCMChannels.STEREO,  # optional channel conversion
-    start_time=1.0,  # optional start seek (seconds)
-    duration=5.0,  # optional duration (seconds)
+    start_time="00:00:01",  # optional start seek (seconds or timecode)
+    duration=5.0,  # optional duration (seconds or timecode)
 ) as reader:
     print(f"Sample Rate: {reader.sample_rate.value} Hz")
     print(f"Channels:    {reader.channels.value}")
