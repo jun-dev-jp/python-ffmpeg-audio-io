@@ -60,6 +60,8 @@ print(f"Format:           {pcm.format.value}")  # e.g., 'f32le'
 print(f"Sample Rate:      {pcm.sample_rate.value}")  # e.g., 44100
 print(f"Channels:         {pcm.channels.value}")  # e.g., 2 (STEREO)
 print(f"Raw Bytes Length: {len(pcm.data)}")
+print(f"Frames:           {pcm.num_frames}")
+print(f"Duration:         {pcm.duration:.2f} s")
 
 # Resampling, channel conversion, and time range trimming (seek & cut)
 # start_time and duration accept numeric seconds or timecode strings (e.g., "00:01:30.500", "01:23:45", "02:15")

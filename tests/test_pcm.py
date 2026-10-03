@@ -361,3 +361,62 @@ def test_as_numpy_empty_data() -> None:
     arr = pcm.as_numpy()
     assert arr.shape == (0, 2)
     assert arr.dtype == np.float32
+
+
+def test_pcm_num_frames_and_duration() -> None:
+    """Test num_frames and duration properties on PCM instances."""
+    # 1. 1 second of 44.1kHz 16-bit Stereo PCM (2 channels * 2 bytes = 4 bytes/frame)
+    sample_rate_44k = PCMSampleRate.RATE_44K
+    frames_44k = 44100
+    frame_size_s16_stereo = 4
+    data_44k = b"\x00" * (frames_44k * frame_size_s16_stereo)
+
+    pcm_1s = PCM(
+        data=data_44k,
+        format=PCMFormat.S16LE,
+        sample_rate=sample_rate_44k,
+        channels=PCMChannels.STEREO,
+    )
+    assert isinstance(pcm_1s.num_frames, int)
+    assert pcm_1s.num_frames == 44100
+    assert isinstance(pcm_1s.duration, float)
+    assert pcm_1s.duration == pytest.approx(1.0)
+
+    # 2. 0.1 second of 48kHz 32-bit float Mono PCM (1 channel * 4 bytes = 4 bytes/frame)
+    sample_rate_48k = PCMSampleRate.RATE_48K
+    frames_48k = 4800
+    frame_size_f32_mono = 4
+    data_48k = b"\x00" * (frames_48k * frame_size_f32_mono)
+
+    pcm_01s = PCM(
+        data=data_48k,
+        format=PCMFormat.F32LE,
+        sample_rate=sample_rate_48k,
+        channels=PCMChannels.MONO,
+    )
+    assert pcm_01s.num_frames == 4800
+    assert pcm_01s.duration == pytest.approx(0.1)
+
+    # 3. 24-bit 6-channel (FIVE_ONE) at 96kHz (6 channels * 3 bytes = 18 bytes/frame)
+    frames_96k = 9600
+    frame_size_24_51 = 18
+    data_96k = b"\x00" * (frames_96k * frame_size_24_51)
+
+    pcm_51 = PCM(
+        data=data_96k,
+        format=PCMFormat.S24LE,
+        sample_rate=PCMSampleRate.RATE_96K,
+        channels=PCMChannels.FIVE_ONE,
+    )
+    assert pcm_51.num_frames == 9600
+    assert pcm_51.duration == pytest.approx(0.1)
+
+    # 4. Empty data (0 frames, 0.0 seconds)
+    pcm_empty = PCM(
+        data=b"",
+        format=PCMFormat.F32LE,
+        sample_rate=PCMSampleRate.RATE_44K,
+        channels=PCMChannels.STEREO,
+    )
+    assert pcm_empty.num_frames == 0
+    assert pcm_empty.duration == 0.0

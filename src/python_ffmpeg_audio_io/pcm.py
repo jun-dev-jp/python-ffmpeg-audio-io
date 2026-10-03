@@ -165,6 +165,25 @@ class PCM:
             )
             raise AudioValueError(msg)
 
+    @property
+    def num_frames(self) -> int:
+        """Return the total number of audio frames in the PCM data.
+
+        Returns:
+            int: Total number of audio frames.
+        """
+        frame_size = self.format.bytes_per_sample * self.channels.value
+        return len(self.data) // frame_size
+
+    @property
+    def duration(self) -> float:
+        """Return the playback duration of the PCM audio in seconds.
+
+        Returns:
+            float: Duration in seconds.
+        """
+        return self.num_frames / self.sample_rate.value
+
     @staticmethod
     def from_numpy(
         arr: NDArray[np.floating[Any] | np.integer[Any]],
