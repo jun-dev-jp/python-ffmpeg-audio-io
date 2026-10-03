@@ -102,6 +102,10 @@ def decode(
             sample_rate=pcm_sample_rate,
             channels=pcm_channels,
         )
+    except FileNotFoundError as e:
+        raise FFmpegNotFoundError(
+            "ffmpeg executable not found. Please ensure FFmpeg is in PATH."
+        ) from e
     except OSError as e:
         if e.errno == 2:
             raise FFmpegNotFoundError(

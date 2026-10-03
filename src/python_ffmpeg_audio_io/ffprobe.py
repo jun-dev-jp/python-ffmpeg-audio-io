@@ -219,7 +219,11 @@ def run_ffprobe(
     ]
 
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        result = subprocess.run(cmd, capture_output=True, check=True)
+    except FileNotFoundError as e:
+        raise FFmpegNotFoundError(
+            "ffprobe executable not found. Please ensure FFmpeg is in PATH."
+        ) from e
     except OSError as e:
         if e.errno == 2:
             raise FFmpegNotFoundError(
@@ -227,14 +231,23 @@ def run_ffprobe(
             ) from e
         raise FFmpegError(f"Failed to start ffprobe process: {e}") from e
     except subprocess.CalledProcessError as e:
-        stderr_str = str(e.stderr).strip() if e.stderr else ""
+        stderr_str = (
+            e.stderr.decode("utf-8", errors="replace").strip()
+            if isinstance(e.stderr, bytes)
+            else str(e.stderr or "").strip()
+        )
         raise FFmpegError(
             f"ffprobe failed to inspect {path}: {stderr_str}",
             stderr=stderr_str,
         ) from e
 
     try:
-        parsed_data = json.loads(result.stdout)
+        stdout_str = (
+            result.stdout.decode("utf-8", errors="replace")
+            if isinstance(result.stdout, bytes)
+            else str(result.stdout or "")
+        )
+        parsed_data = json.loads(stdout_str)
         if not isinstance(parsed_data, dict):
             raise FFmpegError(f"Unexpected JSON structure from FFprobe for {path}")
         return parsed_data  # type: ignore[return-value]
