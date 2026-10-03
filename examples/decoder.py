@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from python_ffmpeg_audio_io.decoder import decode
+from python_ffmpeg_audio_io import PCMChannels, PCMSampleRate, decode
 from python_ffmpeg_audio_io.exceptions import (
     FFmpegError,
     FileReadError,
@@ -30,8 +30,8 @@ def main() -> None:
         print("\nDecoding with resampling (16kHz), stereo upmixing, and 2-second cut:")
         pcm_converted = decode(
             sample_path,
-            sample_rate=16000,
-            channels=2,
+            sample_rate=PCMSampleRate.RATE_16K,
+            channels=PCMChannels.STEREO,
             start_time=1.0,
             duration=2.0,
         )

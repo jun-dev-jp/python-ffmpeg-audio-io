@@ -64,8 +64,8 @@ print(f"Raw Bytes Length: {len(pcm.data)}")
 # Resampling, channel conversion, and time range trimming (seek & cut)
 pcm_trimmed = decode(
     "samples/sample.mp3",
-    sample_rate=PCMSampleRate.RATE_16K,  # or int 16000
-    channels=PCMChannels.STEREO,  # or int 2 (upmix/downmix)
+    sample_rate=PCMSampleRate.RATE_16K,
+    channels=PCMChannels.STEREO,
     start_time=1.0,  # start offset in seconds
     duration=2.5,  # duration to decode in seconds
 )

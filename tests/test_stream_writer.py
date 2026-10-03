@@ -16,6 +16,7 @@ from python_ffmpeg_audio_io import (
     AIFFStreamWriter,
     AudioInfo,
     AudioStreamReader,
+    AudioTypeError,
     BaseAudioStreamWriter,
     FileWriteError,
     FLACEncoderCompressionLevel,
@@ -262,16 +263,28 @@ def test_piping_reader_to_writer(tmp_path: Path) -> None:
     assert abs(info.duration - 36.0) < 1.0
 
 
-def test_stream_writer_int_sample_rate_and_channels(tmp_path: Path) -> None:
-    """Test initializing stream writer with int sample_rate and channels."""
+def test_stream_writer_int_sample_rate_and_channels_raises_type_error(
+    tmp_path: Path,
+) -> None:
+    """Test initializing stream writer with int raises AudioTypeError."""
     out_file = tmp_path / "test_int.mp3"
-    with MP3StreamWriter(
-        out_file,
-        sample_rate=44100,
-        channels=1,
-    ) as writer:
-        assert writer.sample_rate == PCMSampleRate.RATE_44K
-        assert writer.channels == PCMChannels.MONO
+    with pytest.raises(
+        AudioTypeError,
+        match="sample_rate must be an instance of PCMSampleRate",
+    ):
+        _ = MP3StreamWriter(
+            out_file,
+            sample_rate=cast(Any, 44100),
+        )
+
+    with pytest.raises(
+        AudioTypeError,
+        match="channels must be an instance of PCMChannels",
+    ):
+        _ = MP3StreamWriter(
+            out_file,
+            channels=cast(Any, 1),
+        )
 
 
 def test_stream_writer_closed_errors(tmp_path: Path, sample_pcm: PCM) -> None:
@@ -390,20 +403,18 @@ def test_stream_writer_invalid_arguments(tmp_path: Path) -> None:
         _ = MP3StreamWriter(tmp_path / "a.wav")
 
     # Invalid sample_rate type
-    with pytest.raises(TypeError, match="sample_rate must be PCMSampleRate or int"):
+    with pytest.raises(
+        TypeError,
+        match="sample_rate must be an instance of PCMSampleRate",
+    ):
         _ = MP3StreamWriter(tmp_path / "a.mp3", sample_rate=cast(Any, "44100"))
 
-    # Unsupported sample_rate int
-    with pytest.raises(ValueError, match="Unsupported sample rate"):
-        _ = MP3StreamWriter(tmp_path / "a.mp3", sample_rate=999999)
-
     # Invalid channels type
-    with pytest.raises(TypeError, match="channels must be PCMChannels or int"):
+    with pytest.raises(
+        TypeError,
+        match="channels must be an instance of PCMChannels",
+    ):
         _ = MP3StreamWriter(tmp_path / "a.mp3", channels=cast(Any, "stereo"))
-
-    # Unsupported channels int
-    with pytest.raises(ValueError, match="Unsupported channel count"):
-        _ = MP3StreamWriter(tmp_path / "a.mp3", channels=100)
 
     # Invalid pcm_format
     with pytest.raises(TypeError, match="pcm_format must be PCMFormat"):

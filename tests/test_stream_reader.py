@@ -220,29 +220,43 @@ def test_stream_reader_invalid_new_parameters() -> None:
     """Test input validation for new parameters in AudioStreamReader."""
     sample_path = Path("samples/sample.mp3")
 
-    # sample_rate validation
+    # sample_rate validation (including int)
     with pytest.raises(
-        TypeError, match="sample_rate must be PCMSampleRate, int, or None"
+        TypeError,
+        match="sample_rate must be an instance of PCMSampleRate or None",
+    ):
+        _ = AudioStreamReader(sample_path, sample_rate=cast(Any, 44100))
+
+    with pytest.raises(
+        TypeError,
+        match="sample_rate must be an instance of PCMSampleRate or None",
     ):
         _ = AudioStreamReader(sample_path, sample_rate=cast(Any, "44100"))
 
     with pytest.raises(
-        TypeError, match="sample_rate must be PCMSampleRate, int, or None"
+        TypeError,
+        match="sample_rate must be an instance of PCMSampleRate or None",
     ):
         _ = AudioStreamReader(sample_path, sample_rate=cast(Any, True))
 
-    with pytest.raises(ValueError, match="Unsupported sample rate: 12345"):
-        _ = AudioStreamReader(sample_path, sample_rate=12345)
+    # channels validation (including int)
+    with pytest.raises(
+        TypeError,
+        match="channels must be an instance of PCMChannels or None",
+    ):
+        _ = AudioStreamReader(sample_path, channels=cast(Any, 2))
 
-    # channels validation
-    with pytest.raises(TypeError, match="channels must be PCMChannels, int, or None"):
+    with pytest.raises(
+        TypeError,
+        match="channels must be an instance of PCMChannels or None",
+    ):
         _ = AudioStreamReader(sample_path, channels=cast(Any, "2"))
 
-    with pytest.raises(TypeError, match="channels must be PCMChannels, int, or None"):
+    with pytest.raises(
+        TypeError,
+        match="channels must be an instance of PCMChannels or None",
+    ):
         _ = AudioStreamReader(sample_path, channels=cast(Any, True))
-
-    with pytest.raises(ValueError, match="Unsupported channel count: 99"):
-        _ = AudioStreamReader(sample_path, channels=99)
 
     # start_time validation
     with pytest.raises(TypeError, match="start_time must be a float, int, or None"):

@@ -9,7 +9,7 @@ from .pcm import PCMChannels, PCMSampleRate
 
 
 def validate_sample_rate_opt(
-    sample_rate: PCMSampleRate | int | None,
+    sample_rate: PCMSampleRate | None,
 ) -> PCMSampleRate | None:
     """Validate optional target sample rate.
 
@@ -20,26 +20,20 @@ def validate_sample_rate_opt(
         PCMSampleRate | None: The validated PCMSampleRate or None.
 
     Raises:
-        AudioTypeError: If sample_rate is of invalid type.
-        AudioValueError: If sample_rate is an unsupported integer value.
+        AudioTypeError: If sample_rate is not PCMSampleRate or None.
     """
     if sample_rate is None:
         return None
     if isinstance(sample_rate, PCMSampleRate):
         return sample_rate
-    if isinstance(sample_rate, int) and not isinstance(sample_rate, bool):
-        try:
-            return PCMSampleRate(sample_rate)
-        except ValueError as e:
-            raise AudioValueError(f"Unsupported sample rate: {sample_rate}") from e
     t_name = type(sample_rate).__name__
     raise AudioTypeError(
-        f"sample_rate must be PCMSampleRate, int, or None, got {t_name}"
+        f"sample_rate must be an instance of PCMSampleRate or None, got {t_name}"
     )
 
 
 def validate_channels_opt(
-    channels: PCMChannels | int | None,
+    channels: PCMChannels | None,
 ) -> PCMChannels | None:
     """Validate optional target channels.
 
@@ -50,20 +44,16 @@ def validate_channels_opt(
         PCMChannels | None: The validated PCMChannels or None.
 
     Raises:
-        AudioTypeError: If channels is of invalid type.
-        AudioValueError: If channels is an unsupported integer value.
+        AudioTypeError: If channels is not PCMChannels or None.
     """
     if channels is None:
         return None
     if isinstance(channels, PCMChannels):
         return channels
-    if isinstance(channels, int) and not isinstance(channels, bool):
-        try:
-            return PCMChannels(channels)
-        except ValueError as e:
-            raise AudioValueError(f"Unsupported channel count: {channels}") from e
     t_name = type(channels).__name__
-    raise AudioTypeError(f"channels must be PCMChannels, int, or None, got {t_name}")
+    raise AudioTypeError(
+        f"channels must be an instance of PCMChannels or None, got {t_name}"
+    )
 
 
 def validate_start_time(start_time: float | int | None) -> float | None:

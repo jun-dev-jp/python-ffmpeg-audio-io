@@ -49,8 +49,8 @@ class BaseAudioStreamWriter(ABC):
     def __init__(
         self,
         output_path: str | PathLike[str],
-        sample_rate: PCMSampleRate | int = PCMSampleRate.RATE_44K,
-        channels: PCMChannels | int = PCMChannels.STEREO,
+        sample_rate: PCMSampleRate = PCMSampleRate.RATE_44K,
+        channels: PCMChannels = PCMChannels.STEREO,
         pcm_format: PCMFormat = PCMFormat.F32LE,
         overwrite: bool = False,
     ) -> None:
@@ -65,36 +65,25 @@ class BaseAudioStreamWriter(ABC):
 
         Raises:
             AudioTypeError: If arguments are of incorrect type.
-            AudioValueError: If sample_rate, channels, or output file extension is
-                unsupported.
+            AudioValueError: If output file extension is unsupported.
             FileWriteError: If output file exists and overwrite is False, or
                 not writable.
             FFmpegNotFoundError: If FFmpeg executable is not found in PATH.
             FFmpegError: If FFmpeg fails to spawn.
         """
-        if isinstance(sample_rate, PCMSampleRate):
-            self.sample_rate = sample_rate
-        elif isinstance(sample_rate, int) and not isinstance(sample_rate, bool):
-            try:
-                self.sample_rate = PCMSampleRate(sample_rate)
-            except ValueError as e:
-                raise AudioValueError(f"Unsupported sample rate: {sample_rate}") from e
-        else:
+        if not isinstance(sample_rate, PCMSampleRate):
             t_name = type(sample_rate).__name__
             raise AudioTypeError(
-                f"sample_rate must be PCMSampleRate or int, got {t_name}"
+                f"sample_rate must be an instance of PCMSampleRate, got {t_name}"
             )
+        self.sample_rate = sample_rate
 
-        if isinstance(channels, PCMChannels):
-            self.channels = channels
-        elif isinstance(channels, int) and not isinstance(channels, bool):
-            try:
-                self.channels = PCMChannels(channels)
-            except ValueError as e:
-                raise AudioValueError(f"Unsupported channel count: {channels}") from e
-        else:
+        if not isinstance(channels, PCMChannels):
             t_name = type(channels).__name__
-            raise AudioTypeError(f"channels must be PCMChannels or int, got {t_name}")
+            raise AudioTypeError(
+                f"channels must be an instance of PCMChannels, got {t_name}"
+            )
+        self.channels = channels
 
         if not isinstance(pcm_format, PCMFormat):
             t_name = type(pcm_format).__name__

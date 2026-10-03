@@ -26,8 +26,8 @@ from .pcm import PCM, PCMChannels, PCMCodec, PCMSampleRate
 def decode(
     path: str | PathLike[str],
     pcm_codec: PCMCodec = PCMCodec.PCM_F32LE,
-    sample_rate: PCMSampleRate | int | None = None,
-    channels: PCMChannels | int | None = None,
+    sample_rate: PCMSampleRate | None = None,
+    channels: PCMChannels | None = None,
     start_time: float | int | None = None,
     duration: float | int | None = None,
 ) -> PCM:

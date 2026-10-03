@@ -28,8 +28,8 @@ class FLACStreamWriter(BaseAudioStreamWriter):
     def __init__(
         self,
         output_path: str | PathLike[str],
-        sample_rate: PCMSampleRate | int = PCMSampleRate.RATE_44K,
-        channels: PCMChannels | int = PCMChannels.STEREO,
+        sample_rate: PCMSampleRate = PCMSampleRate.RATE_44K,
+        channels: PCMChannels = PCMChannels.STEREO,
         pcm_format: PCMFormat = PCMFormat.F32LE,
         overwrite: bool = False,
         compression_level: FLACEncoderCompressionLevel = (

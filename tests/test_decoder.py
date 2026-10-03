@@ -37,7 +37,7 @@ def test_decode_resampling() -> None:
     """Test decode() with target sample rate conversion (resampling)."""
     sample_path = Path("samples/sample.mp3")
 
-    # Resample using PCMSampleRate enum
+    # Resample to 16kHz
     pcm_16k = decode(
         sample_path,
         sample_rate=PCMSampleRate.RATE_16K,
@@ -47,10 +47,10 @@ def test_decode_resampling() -> None:
     # 1.0s * 16000 samples/s * 1 ch * 4 bytes/sample = 64000 bytes
     assert len(pcm_16k.data) == 64000
 
-    # Resample using integer sample rate
+    # Resample to 48kHz
     pcm_48k = decode(
         sample_path,
-        sample_rate=48000,
+        sample_rate=PCMSampleRate.RATE_48K,
         duration=1.0,
     )
     assert pcm_48k.sample_rate == PCMSampleRate.RATE_48K
@@ -71,15 +71,6 @@ def test_decode_channel_conversion(tmp_path: Path) -> None:
     assert pcm_stereo.channels == PCMChannels.STEREO
     # 1.0s * 44100 samples/s * 2 ch * 4 bytes/sample = 352800 bytes
     assert len(pcm_stereo.data) == 352800
-
-    # Upmix mono to stereo using integer channel count
-    pcm_stereo_int = decode(
-        sample_path,
-        channels=2,
-        duration=1.0,
-    )
-    assert pcm_stereo_int.channels == PCMChannels.STEREO
-    assert len(pcm_stereo_int.data) == 352800
 
     # Save stereo audio to test downmixing from stereo to mono
     stereo_file = tmp_path / "stereo.mp3"
@@ -162,41 +153,43 @@ def test_decode_input_validation(tmp_path: Path) -> None:
     ):
         _ = decode(sample_path, pcm_codec=cast(Any, "invalid"))
 
-    # Invalid sample_rate type
+    # Invalid sample_rate type (including int)
     with pytest.raises(
-        AudioTypeError, match="sample_rate must be PCMSampleRate, int, or None"
+        AudioTypeError,
+        match="sample_rate must be an instance of PCMSampleRate or None",
+    ):
+        _ = decode(sample_path, sample_rate=cast(Any, 44100))
+
+    with pytest.raises(
+        AudioTypeError,
+        match="sample_rate must be an instance of PCMSampleRate or None",
     ):
         _ = decode(sample_path, sample_rate=cast(Any, "44100"))
 
     with pytest.raises(
-        AudioTypeError, match="sample_rate must be PCMSampleRate, int, or None"
+        AudioTypeError,
+        match="sample_rate must be an instance of PCMSampleRate or None",
     ):
         _ = decode(sample_path, sample_rate=cast(Any, True))
 
-    # Unsupported sample_rate int
-    with pytest.raises(AudioValueError, match="Unsupported sample rate: 12345"):
-        _ = decode(sample_path, sample_rate=12345)
-
-    with pytest.raises(AudioValueError, match="Unsupported sample rate: -44100"):
-        _ = decode(sample_path, sample_rate=-44100)
-
-    # Invalid channels type
+    # Invalid channels type (including int)
     with pytest.raises(
-        AudioTypeError, match="channels must be PCMChannels, int, or None"
+        AudioTypeError,
+        match="channels must be an instance of PCMChannels or None",
+    ):
+        _ = decode(sample_path, channels=cast(Any, 2))
+
+    with pytest.raises(
+        AudioTypeError,
+        match="channels must be an instance of PCMChannels or None",
     ):
         _ = decode(sample_path, channels=cast(Any, "stereo"))
 
     with pytest.raises(
-        AudioTypeError, match="channels must be PCMChannels, int, or None"
+        AudioTypeError,
+        match="channels must be an instance of PCMChannels or None",
     ):
         _ = decode(sample_path, channels=cast(Any, True))
-
-    # Unsupported channels int
-    with pytest.raises(AudioValueError, match="Unsupported channel count: 10"):
-        _ = decode(sample_path, channels=10)
-
-    with pytest.raises(AudioValueError, match="Unsupported channel count: -1"):
-        _ = decode(sample_path, channels=-1)
 
     # Invalid start_time type
     with pytest.raises(
