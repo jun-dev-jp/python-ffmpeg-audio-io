@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import subprocess
 from os import PathLike
 from pathlib import Path
 from typing import Any, cast
@@ -36,6 +37,8 @@ from python_ffmpeg_audio_io.encoder.opus import (
 )
 from python_ffmpeg_audio_io.encoder.wav import WAVEncoder
 from python_ffmpeg_audio_io.exceptions import (
+    FFmpegError,
+    FFmpegNotFoundError,
     FileReadError,
     FileWriteError,
     PyFFmpegAudioIOError,
@@ -608,3 +611,78 @@ def test_base_audio_encoder_direct_checks() -> None:
             output_path=Path("out.mp3"),
             overwrite=False,
         )
+
+
+def test_encoder_ffmpeg_not_found(tmp_path: Path) -> None:
+    """Test that FileNotFoundError when running FFmpeg encoder raises
+    FFmpegNotFoundError.
+    """
+    encoder = MP3Encoder()
+    valid_pcm = PCM(
+        data=b"\x00" * 1024,
+        format=PCMFormat.F32LE,
+        sample_rate=PCMSampleRate.RATE_44K,
+        channels=PCMChannels.STEREO,
+    )
+    with patch(
+        "python_ffmpeg_audio_io.encoder.base.subprocess.run",
+        side_effect=FileNotFoundError("ffmpeg not found"),
+    ):
+        with pytest.raises(FFmpegNotFoundError, match="ffmpeg executable not found"):
+            encoder(valid_pcm, tmp_path / "out.mp3")
+
+
+def test_encoder_oserror(tmp_path: Path) -> None:
+    """Test that generic OSError when running FFmpeg encoder raises FFmpegError."""
+    encoder = MP3Encoder()
+    valid_pcm = PCM(
+        data=b"\x00" * 1024,
+        format=PCMFormat.F32LE,
+        sample_rate=PCMSampleRate.RATE_44K,
+        channels=PCMChannels.STEREO,
+    )
+    with patch(
+        "python_ffmpeg_audio_io.encoder.base.subprocess.run",
+        side_effect=OSError(13, "Permission denied"),
+    ):
+        with pytest.raises(FFmpegError, match="Failed to start ffmpeg process"):
+            encoder(valid_pcm, tmp_path / "out.mp3")
+
+
+def test_ffprobe_not_found() -> None:
+    """Test that FileNotFoundError when running ffprobe raises FFmpegNotFoundError."""
+    sample_path = Path("samples/sample.mp3")
+    with patch(
+        "python_ffmpeg_audio_io.ffprobe.subprocess.run",
+        side_effect=FileNotFoundError("ffprobe not found"),
+    ):
+        with pytest.raises(FFmpegNotFoundError, match="ffprobe executable not found"):
+            _ = run_ffprobe(sample_path)
+
+
+def test_ffprobe_oserror() -> None:
+    """Test that generic OSError when running ffprobe raises FFmpegError."""
+    sample_path = Path("samples/sample.mp3")
+    with patch(
+        "python_ffmpeg_audio_io.ffprobe.subprocess.run",
+        side_effect=OSError(13, "Permission denied"),
+    ):
+        with pytest.raises(FFmpegError, match="Failed to start ffprobe process"):
+            _ = run_ffprobe(sample_path)
+
+
+def test_ffprobe_stdin_devnull() -> None:
+    """Test that ffprobe is invoked with stdin=subprocess.DEVNULL."""
+    sample_path = Path("samples/sample.mp3")
+    mock_result = subprocess.CompletedProcess(
+        args=[],
+        returncode=0,
+        stdout=b'{"streams": [], "format": {}}',
+        stderr=b"",
+    )
+    with patch(
+        "python_ffmpeg_audio_io.ffprobe.subprocess.run",
+        return_value=mock_result,
+    ) as mock_run:
+        _ = run_ffprobe(sample_path)
+        assert mock_run.call_args[1].get("stdin") == subprocess.DEVNULL

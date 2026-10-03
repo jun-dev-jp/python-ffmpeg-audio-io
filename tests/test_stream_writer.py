@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, cast
+from unittest.mock import patch
 
 import pytest
 
@@ -18,6 +19,8 @@ from python_ffmpeg_audio_io import (
     AudioStreamReader,
     AudioTypeError,
     BaseAudioStreamWriter,
+    FFmpegError,
+    FFmpegNotFoundError,
     FileWriteError,
     FLACEncoderCompressionLevel,
     FLACStreamWriter,
@@ -495,3 +498,25 @@ def test_stream_writer_invalid_arguments(tmp_path: Path) -> None:
 
     with pytest.raises(TypeError, match="application must be OpusEncoderApplication"):
         _ = OpusStreamWriter(tmp_path / "a.opus", application=cast(Any, "audio"))
+
+
+def test_stream_writer_ffmpeg_not_found(tmp_path: Path) -> None:
+    """Test that FileNotFoundError when spawning FFmpeg raises FFmpegNotFoundError."""
+    out_file = tmp_path / "out.mp3"
+    with patch(
+        "python_ffmpeg_audio_io.stream_writer.base.subprocess.Popen",
+        side_effect=FileNotFoundError("ffmpeg not found"),
+    ):
+        with pytest.raises(FFmpegNotFoundError, match="ffmpeg executable not found"):
+            _ = MP3StreamWriter(out_file)
+
+
+def test_stream_writer_oserror(tmp_path: Path) -> None:
+    """Test that generic OSError when spawning FFmpeg raises FFmpegError."""
+    out_file = tmp_path / "out.mp3"
+    with patch(
+        "python_ffmpeg_audio_io.stream_writer.base.subprocess.Popen",
+        side_effect=OSError(13, "Permission denied"),
+    ):
+        with pytest.raises(FFmpegError, match="Failed to start ffmpeg process"):
+            _ = MP3StreamWriter(out_file)

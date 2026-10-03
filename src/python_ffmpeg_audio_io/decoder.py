@@ -103,7 +103,7 @@ def decode(
 
     sample_format = pcm_codec.pcm_format
 
-    cmd = ["ffmpeg"]
+    cmd = ["ffmpeg", "-nostdin"]
     if seek_time is not None:
         cmd.extend(["-ss", str(seek_time)])
     cmd.extend(
@@ -131,7 +131,12 @@ def decode(
     )
 
     try:
-        result = subprocess.run(cmd, capture_output=True, check=True)
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            check=True,
+            stdin=subprocess.DEVNULL,
+        )
         return PCM(
             data=result.stdout,
             format=sample_format,
@@ -143,10 +148,6 @@ def decode(
             "ffmpeg executable not found. Please ensure FFmpeg is in PATH."
         ) from e
     except OSError as e:
-        if e.errno == 2:
-            raise FFmpegNotFoundError(
-                "ffmpeg executable not found. Please ensure FFmpeg is in PATH."
-            ) from e
         raise FFmpegError(f"Failed to start ffmpeg process: {e}") from e
     except subprocess.CalledProcessError as e:
         err_msg = (

@@ -219,16 +219,17 @@ def run_ffprobe(
     ]
 
     try:
-        result = subprocess.run(cmd, capture_output=True, check=True)
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            check=True,
+            stdin=subprocess.DEVNULL,
+        )
     except FileNotFoundError as e:
         raise FFmpegNotFoundError(
             "ffprobe executable not found. Please ensure FFmpeg is in PATH."
         ) from e
     except OSError as e:
-        if e.errno == 2:
-            raise FFmpegNotFoundError(
-                "ffprobe executable not found. Please ensure FFmpeg is in PATH."
-            ) from e
         raise FFmpegError(f"Failed to start ffprobe process: {e}") from e
     except subprocess.CalledProcessError as e:
         stderr_str = (

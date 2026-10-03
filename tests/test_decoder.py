@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 from typing import Any, cast
+from unittest.mock import patch
 
 import pytest
 
@@ -11,6 +13,8 @@ from python_ffmpeg_audio_io import (
     PCM,
     AudioTypeError,
     AudioValueError,
+    FFmpegError,
+    FFmpegNotFoundError,
     FileReadError,
     MP3Encoder,
     PCMChannels,
@@ -295,3 +299,56 @@ def test_decode_input_validation(tmp_path: Path) -> None:
 
     with pytest.raises(AudioValueError, match="duration must be a finite number"):
         _ = decode(sample_path, duration=float("inf"))
+
+
+def test_decode_ffmpeg_not_found() -> None:
+    """Test that FileNotFoundError when running FFmpeg raises FFmpegNotFoundError."""
+    sample_path = Path("samples/sample.mp3")
+    with patch(
+        "python_ffmpeg_audio_io.decoder.subprocess.run",
+        side_effect=FileNotFoundError("ffmpeg not found"),
+    ):
+        with pytest.raises(FFmpegNotFoundError, match="ffmpeg executable not found"):
+            _ = decode(
+                sample_path,
+                sample_rate=PCMSampleRate.RATE_44K,
+                channels=PCMChannels.MONO,
+            )
+
+
+def test_decode_oserror() -> None:
+    """Test that generic OSError when running FFmpeg raises FFmpegError."""
+    sample_path = Path("samples/sample.mp3")
+    with patch(
+        "python_ffmpeg_audio_io.decoder.subprocess.run",
+        side_effect=OSError(13, "Permission denied"),
+    ):
+        with pytest.raises(FFmpegError, match="Failed to start ffmpeg process"):
+            _ = decode(
+                sample_path,
+                sample_rate=PCMSampleRate.RATE_44K,
+                channels=PCMChannels.MONO,
+            )
+
+
+def test_decode_nostdin_and_devnull() -> None:
+    """Test that decode invokes FFmpeg with -nostdin and stdin=subprocess.DEVNULL."""
+    sample_path = Path("samples/sample.mp3")
+    mock_result = subprocess.CompletedProcess(
+        args=[],
+        returncode=0,
+        stdout=b"\x00\x00\x00\x00",
+        stderr=b"",
+    )
+    with patch(
+        "python_ffmpeg_audio_io.decoder.subprocess.run",
+        return_value=mock_result,
+    ) as mock_run:
+        _ = decode(
+            sample_path,
+            sample_rate=PCMSampleRate.RATE_44K,
+            channels=PCMChannels.MONO,
+        )
+        cmd = mock_run.call_args[0][0]
+        assert "-nostdin" in cmd
+        assert mock_run.call_args[1].get("stdin") == subprocess.DEVNULL

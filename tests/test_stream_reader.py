@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import io
+import subprocess
+import time
 from pathlib import Path
 from typing import Any, cast
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
@@ -12,11 +16,14 @@ from python_ffmpeg_audio_io import (
     PCM,
     AudioInfo,
     AudioStreamReader,
+    FFmpegError,
+    FFmpegNotFoundError,
     FileReadError,
     PCMChannels,
     PCMCodec,
     PCMFormat,
     PCMSampleRate,
+    StreamBrokenError,
     StreamClosedError,
     decode,
 )
@@ -314,3 +321,218 @@ def test_stream_reader_invalid_new_parameters() -> None:
 
     with pytest.raises(ValueError, match="duration must be positive"):
         _ = AudioStreamReader(sample_path, duration="00:00:00")
+
+
+@pytest.fixture
+def dummy_audio_info() -> AudioInfo:
+    """Fixture providing dummy AudioInfo for mocking."""
+    return AudioInfo(
+        sample_rate=44100,
+        sample_fmt="fltp",
+        channels=1,
+        duration=1.0,
+        codec_name="mp3",
+        format_name="mp3",
+        format_long_name="MP3",
+        size=1000,
+        bit_rate=128000,
+    )
+
+
+def test_stream_reader_ffmpeg_not_found(dummy_audio_info: AudioInfo) -> None:
+    """Test that FileNotFoundError when spawning FFmpeg raises FFmpegNotFoundError."""
+    sample_path = Path("samples/sample.mp3")
+    with (
+        patch(
+            "python_ffmpeg_audio_io.stream_reader.get_audio_info",
+            return_value=dummy_audio_info,
+        ),
+        patch(
+            "python_ffmpeg_audio_io.stream_reader.subprocess.Popen",
+            side_effect=FileNotFoundError("ffmpeg not found"),
+        ),
+    ):
+        with pytest.raises(FFmpegNotFoundError, match="ffmpeg executable not found"):
+            _ = AudioStreamReader(sample_path)
+
+
+def test_stream_reader_oserror(dummy_audio_info: AudioInfo) -> None:
+    """Test that generic OSError when spawning FFmpeg raises FFmpegError."""
+    sample_path = Path("samples/sample.mp3")
+    with (
+        patch(
+            "python_ffmpeg_audio_io.stream_reader.get_audio_info",
+            return_value=dummy_audio_info,
+        ),
+        patch(
+            "python_ffmpeg_audio_io.stream_reader.subprocess.Popen",
+            side_effect=OSError(13, "Permission denied"),
+        ),
+    ):
+        with pytest.raises(FFmpegError, match="Failed to start ffmpeg process"):
+            _ = AudioStreamReader(sample_path)
+
+
+def test_stream_reader_nostdin_and_devnull(dummy_audio_info: AudioInfo) -> None:
+    """Test that FFmpeg is invoked with -nostdin and stdin=subprocess.DEVNULL."""
+    sample_path = Path("samples/sample.mp3")
+    with (
+        patch(
+            "python_ffmpeg_audio_io.stream_reader.get_audio_info",
+            return_value=dummy_audio_info,
+        ),
+        patch("python_ffmpeg_audio_io.stream_reader.subprocess.Popen") as mock_popen,
+    ):
+        mock_proc = MagicMock()
+        mock_proc.stdout = io.BytesIO(b"")
+        mock_proc.stderr = io.BytesIO(b"")
+        mock_proc.poll.return_value = 0
+        mock_proc.wait.return_value = 0
+        mock_popen.return_value = mock_proc
+
+        with AudioStreamReader(sample_path) as reader:
+            _ = reader.read()
+
+        cmd = mock_popen.call_args[0][0]
+        assert "-nostdin" in cmd
+        assert mock_popen.call_args[1].get("stdin") == subprocess.DEVNULL
+
+
+def test_stream_reader_large_stderr_drain_no_deadlock(
+    dummy_audio_info: AudioInfo,
+) -> None:
+    """Test that background thread drains large stderr without deadlock."""
+    sample_path = Path("samples/sample.mp3")
+    # Generate 128KB of stderr data (exceeding typical 64KB pipe buffer)
+    large_stderr = b"A" * (128 * 1024)
+    # Output 1 frame of PCM data (4 bytes)
+    mock_stdout_data = b"\x00\x00\x00\x00"
+
+    with (
+        patch(
+            "python_ffmpeg_audio_io.stream_reader.get_audio_info",
+            return_value=dummy_audio_info,
+        ),
+        patch("python_ffmpeg_audio_io.stream_reader.subprocess.Popen") as mock_popen,
+    ):
+        mock_proc = MagicMock()
+        mock_proc.stdout = io.BytesIO(mock_stdout_data)
+        mock_proc.stderr = io.BytesIO(large_stderr)
+        mock_proc.poll.return_value = 0
+        mock_proc.wait.return_value = 0
+        mock_popen.return_value = mock_proc
+
+        with AudioStreamReader(sample_path, chunk_frames=1) as reader:
+            chunk = reader.read()
+            assert chunk is not None
+            assert len(chunk.data) == 4
+
+            # Give thread a moment to finish draining
+            time.sleep(0.05)
+            # Total buffered bytes must be bounded by _stderr_max_bytes
+            assert reader._stderr_total_bytes <= reader._stderr_max_bytes
+
+            eof_chunk = reader.read()
+            assert eof_chunk is None
+
+
+def test_stream_reader_eof_race_condition_error_detection(
+    dummy_audio_info: AudioInfo,
+) -> None:
+    """Test that process terminating with error at EOF is detected via wait().
+
+    Simulates the race condition where poll() would return None right after
+    stdout reaches EOF, but wait() returns exit code 1 with an error on stderr.
+    """
+    sample_path = Path("samples/sample.mp3")
+    error_msg = b"Decoder error occurred at end of file"
+
+    with (
+        patch(
+            "python_ffmpeg_audio_io.stream_reader.get_audio_info",
+            return_value=dummy_audio_info,
+        ),
+        patch("python_ffmpeg_audio_io.stream_reader.subprocess.Popen") as mock_popen,
+    ):
+        mock_proc = MagicMock()
+        mock_proc.stdout = io.BytesIO(b"")
+        mock_proc.stderr = io.BytesIO(error_msg)
+        # poll() returns None simulates process still terminating
+        mock_proc.poll.return_value = None
+        # wait() completes and reveals exit code 1
+        mock_proc.wait.return_value = 1
+        mock_popen.return_value = mock_proc
+
+        with AudioStreamReader(sample_path) as reader:
+            with pytest.raises(FFmpegError) as exc_info:
+                _ = reader.read()
+
+            assert exc_info.value.stderr == "Decoder error occurred at end of file"
+            assert "terminated unexpectedly with code 1" in str(exc_info.value)
+
+
+def test_stream_reader_unaligned_data(dummy_audio_info: AudioInfo) -> None:
+    """Test that stream ending with unaligned data raises StreamBrokenError."""
+    sample_path = Path("samples/sample.mp3")
+    unaligned_bytes = b"\x00\x00\x00"  # 3 bytes, but frame_size is 4
+
+    with (
+        patch(
+            "python_ffmpeg_audio_io.stream_reader.get_audio_info",
+            return_value=dummy_audio_info,
+        ),
+        patch("python_ffmpeg_audio_io.stream_reader.subprocess.Popen") as mock_popen,
+    ):
+        mock_proc = MagicMock()
+        mock_proc.stdout = io.BytesIO(unaligned_bytes)
+        mock_proc.stderr = io.BytesIO(b"corrupt packet")
+        mock_proc.poll.return_value = 0
+        mock_proc.wait.return_value = 0
+        mock_popen.return_value = mock_proc
+
+        with AudioStreamReader(sample_path) as reader:
+            with pytest.raises(StreamBrokenError) as exc_info:
+                _ = reader.read()
+            assert "unaligned data" in str(exc_info.value)
+            assert exc_info.value.stderr == "corrupt packet"
+
+
+def test_stream_reader_stdout_broken_pipe(dummy_audio_info: AudioInfo) -> None:
+    """Test that BrokenPipeError on stdout read raises StreamBrokenError."""
+    sample_path = Path("samples/sample.mp3")
+
+    mock_stdout = MagicMock()
+    mock_stdout.read.side_effect = BrokenPipeError("Pipe broken")
+
+    with (
+        patch(
+            "python_ffmpeg_audio_io.stream_reader.get_audio_info",
+            return_value=dummy_audio_info,
+        ),
+        patch("python_ffmpeg_audio_io.stream_reader.subprocess.Popen") as mock_popen,
+    ):
+        mock_proc = MagicMock()
+        mock_proc.stdout = mock_stdout
+        mock_proc.stderr = io.BytesIO(b"broken pipe details")
+        mock_proc.poll.return_value = 1
+        mock_proc.wait.return_value = 1
+        mock_popen.return_value = mock_proc
+
+        with AudioStreamReader(sample_path) as reader:
+            with pytest.raises(StreamBrokenError) as exc_info:
+                _ = reader.read()
+            assert exc_info.value.stderr == "broken pipe details"
+
+
+def test_stream_reader_subsequent_reads_after_eof() -> None:
+    """Test that repeated read() calls after EOF continue to return None."""
+    sample_path = Path("samples/sample.mp3")
+    with AudioStreamReader(sample_path, duration=0.1) as reader:
+        # Drain all chunks
+        for _ in reader:
+            pass
+
+        # Further reads return None
+        assert reader.read() is None
+        assert reader.read() is None
+        assert reader.read_bytes() == b""

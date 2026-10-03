@@ -164,11 +164,11 @@ class BaseAudioEncoder(ABC):
                 capture_output=True,
                 check=True,
             )
+        except FileNotFoundError as e:
+            raise FFmpegNotFoundError(
+                "ffmpeg executable not found. Please ensure FFmpeg is in PATH."
+            ) from e
         except OSError as e:
-            if e.errno == 2:
-                raise FFmpegNotFoundError(
-                    "ffmpeg executable not found. Please ensure FFmpeg is in PATH."
-                ) from e
             raise FFmpegError(f"Failed to start ffmpeg process: {e}") from e
         except subprocess.CalledProcessError as e:
             err_msg = (

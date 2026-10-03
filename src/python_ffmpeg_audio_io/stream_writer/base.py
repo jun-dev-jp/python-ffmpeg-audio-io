@@ -206,11 +206,11 @@ class BaseAudioStreamWriter(ABC):
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE,
             )
+        except FileNotFoundError as e:
+            raise FFmpegNotFoundError(
+                "ffmpeg executable not found. Please ensure FFmpeg is in PATH."
+            ) from e
         except OSError as e:
-            if e.errno == 2:
-                raise FFmpegNotFoundError(
-                    "ffmpeg executable not found. Please ensure FFmpeg is in PATH."
-                ) from e
             raise FFmpegError(f"Failed to start ffmpeg process: {e}") from e
 
     @property

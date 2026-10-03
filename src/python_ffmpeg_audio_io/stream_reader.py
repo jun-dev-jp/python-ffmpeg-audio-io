@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import subprocess
+import threading
+from collections import deque
 from collections.abc import Iterator
 from os import R_OK, PathLike, access
 from pathlib import Path
@@ -56,6 +58,12 @@ class AudioStreamReader:
 
     _process: subprocess.Popen[bytes]
     _closed: bool
+    _eof: bool
+    _stderr_chunks: deque[bytes]
+    _stderr_lock: threading.Lock
+    _stderr_total_bytes: int
+    _stderr_max_bytes: int
+    _stderr_thread: threading.Thread | None
 
     def __init__(
         self,
@@ -152,7 +160,18 @@ class AudioStreamReader:
 
         self.frame_size = self.pcm_format.bytes_per_sample * self.channels.value
         self._closed = False
+        self._eof = False
+        self._stderr_chunks = deque()
+        self._stderr_lock = threading.Lock()
+        self._stderr_total_bytes = 0
+        self._stderr_max_bytes = 64 * 1024
         self._process = self._spawn_ffmpeg()
+        self._stderr_thread = threading.Thread(
+            target=self._drain_stderr,
+            daemon=True,
+            name=f"AudioStreamReader-stderr-{id(self)}",
+        )
+        self._stderr_thread.start()
 
     def _spawn_ffmpeg(self) -> subprocess.Popen[bytes]:
         """Spawn the FFmpeg subprocess for streaming decode.
@@ -164,7 +183,7 @@ class AudioStreamReader:
             FFmpegNotFoundError: If FFmpeg executable is not in PATH.
             FFmpegError: If spawning FFmpeg fails.
         """
-        cmd = ["ffmpeg"]
+        cmd = ["ffmpeg", "-nostdin"]
         if self.start_time is not None:
             cmd.extend(["-ss", str(self.start_time)])
         cmd.extend(
@@ -194,15 +213,67 @@ class AudioStreamReader:
         try:
             return subprocess.Popen(
                 cmd,
+                stdin=subprocess.DEVNULL,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
+        except FileNotFoundError as e:
+            raise FFmpegNotFoundError(
+                "ffmpeg executable not found. Please ensure FFmpeg is in PATH."
+            ) from e
         except OSError as e:
-            if e.errno == 2:
-                raise FFmpegNotFoundError(
-                    "ffmpeg executable not found. Please ensure FFmpeg is in PATH."
-                ) from e
             raise FFmpegError(f"Failed to start ffmpeg process: {e}") from e
+
+    def _drain_stderr(self) -> None:
+        """Continuously read and drain FFmpeg stderr in a background thread."""
+        stderr = self._process.stderr
+        if stderr is None:
+            return
+
+        try:
+            while True:
+                chunk = stderr.read(4096)
+                if not chunk:
+                    break
+                with self._stderr_lock:
+                    self._stderr_chunks.append(chunk)
+                    self._stderr_total_bytes += len(chunk)
+                    while (
+                        self._stderr_total_bytes > self._stderr_max_bytes
+                        and self._stderr_chunks
+                    ):
+                        removed = self._stderr_chunks.popleft()
+                        self._stderr_total_bytes -= len(removed)
+        except (OSError, ValueError):
+            pass
+        finally:
+            try:
+                stderr.close()
+            except OSError:
+                pass
+
+    def _get_stderr(self) -> str:
+        """Return captured stderr output as decoded string."""
+        with self._stderr_lock:
+            data = b"".join(self._stderr_chunks)
+        return data.decode("utf-8", errors="replace").strip()
+
+    def _wait_process(self, timeout: float = 5.0) -> int:
+        """Wait for the FFmpeg subprocess to finish and join stderr thread."""
+        try:
+            returncode = self._process.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            self._process.terminate()
+            try:
+                returncode = self._process.wait(timeout=1.0)
+            except subprocess.TimeoutExpired:
+                self._process.kill()
+                returncode = self._process.wait()
+
+        if self._stderr_thread is not None and self._stderr_thread.is_alive():
+            self._stderr_thread.join(timeout=1.0)
+
+        return returncode
 
     @property
     def closed(self) -> bool:
@@ -242,6 +313,8 @@ class AudioStreamReader:
         """
         if self._closed:
             raise StreamClosedError("Cannot read from a closed AudioStreamReader.")
+        if self._eof:
+            return None
 
         target_frames = self.chunk_frames if frames is None else frames
         if not isinstance(target_frames, int) or isinstance(target_frames, bool):
@@ -252,17 +325,22 @@ class AudioStreamReader:
             raise AudioValueError(f"frames must be positive, got {target_frames}")
 
         n_bytes = target_frames * self.frame_size
-        raw_bytes = self._read_exact(n_bytes)
+        try:
+            raw_bytes = self._read_exact(n_bytes)
+        except (BrokenPipeError, OSError) as e:
+            self._eof = True
+            self._wait_process()
+            stderr = self._get_stderr()
+            raise StreamBrokenError(
+                f"Failed to read from FFmpeg stdout pipe: {stderr or e}",
+                stderr=stderr,
+            ) from e
 
         if not raw_bytes:
-            # Check if process ended cleanly or errored
-            returncode = self._process.poll()
-            if returncode is not None and returncode != 0:
-                stderr = (
-                    self._process.stderr.read().decode("utf-8", errors="ignore").strip()
-                    if self._process.stderr
-                    else ""
-                )
+            self._eof = True
+            returncode = self._wait_process()
+            if returncode != 0:
+                stderr = self._get_stderr()
                 err_msg = (
                     f"FFmpeg process terminated unexpectedly with code "
                     f"{returncode}: {stderr}"
@@ -271,11 +349,9 @@ class AudioStreamReader:
             return None
 
         if len(raw_bytes) % self.frame_size != 0:
-            stderr = (
-                self._process.stderr.read().decode("utf-8", errors="ignore").strip()
-                if self._process.stderr
-                else ""
-            )
+            self._eof = True
+            self._wait_process()
+            stderr = self._get_stderr()
             raise StreamBrokenError(
                 f"Stream ended with unaligned data ({len(raw_bytes)} bytes, "
                 f"frame size is {self.frame_size} bytes): {stderr}",
@@ -342,6 +418,9 @@ class AudioStreamReader:
             except subprocess.TimeoutExpired:
                 self._process.kill()
                 self._process.wait()
+
+        if self._stderr_thread is not None and self._stderr_thread.is_alive():
+            self._stderr_thread.join(timeout=1.0)
 
         if self._process.stderr is not None:
             try:
