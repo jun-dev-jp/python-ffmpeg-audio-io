@@ -31,6 +31,9 @@ from .encoder.opus import (
     OpusEncoderBitrate,
     OpusEncoderMode,
 )
+from .encoder.wav import (
+    WAVEncoder,
+)
 from .exceptions import (
     AudioIOError,
     AudioStreamError,
@@ -69,6 +72,7 @@ from .stream_writer import (
     FLACStreamWriter,
     MP3StreamWriter,
     OpusStreamWriter,
+    WAVStreamWriter,
 )
 
 __all__ = [
@@ -115,6 +119,8 @@ __all__ = [
     "StreamBrokenError",
     "StreamClosedError",
     "StreamError",
+    "WAVEncoder",
+    "WAVStreamWriter",
     "decode",
     "get_audio_info",
     "run_ffprobe",

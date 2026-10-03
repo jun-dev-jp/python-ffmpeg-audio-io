@@ -34,6 +34,7 @@ from python_ffmpeg_audio_io.encoder.opus import (
     OpusEncoderBitrate,
     OpusEncoderMode,
 )
+from python_ffmpeg_audio_io.encoder.wav import WAVEncoder
 from python_ffmpeg_audio_io.exceptions import (
     FileReadError,
     FileWriteError,
@@ -263,6 +264,17 @@ def test_encoders_instantiation_and_properties() -> None:
     with pytest.raises(TypeError):
         flac_encoder.compression_level = cast(Any, "invalid")
 
+    # 6. WAV Encoder
+    wav_encoder = WAVEncoder(codec=PCMCodec.PCM_S16LE)
+    assert wav_encoder.codec == PCMCodec.PCM_S16LE
+    wav_encoder.codec = PCMCodec.PCM_S24LE
+    assert wav_encoder.codec == PCMCodec.PCM_S24LE
+
+    with pytest.raises(TypeError):
+        _ = WAVEncoder(codec=cast(Any, "invalid"))
+    with pytest.raises(TypeError):
+        wav_encoder.codec = cast(Any, "invalid")
+
 
 def test_encode_mp3(tmp_path: Path) -> None:
     """Test actual encoding of PCM data to MP3 files with different modes."""
@@ -344,6 +356,49 @@ def test_encode_aiff(tmp_path: Path) -> None:
     encoder_s24 = AIFFEncoder(codec=PCMCodec.PCM_S24BE)
     encoder_s24(pcm, out_s24)
     assert out_s24.exists()
+
+
+def test_encode_wav(tmp_path: Path) -> None:
+    """Test actual encoding of PCM data to WAV files."""
+    sample_path = Path("samples/sample.mp3")
+    pcm = decode(sample_path)
+
+    # 1. S16LE (.wav)
+    out_s16 = tmp_path / "test_s16.wav"
+    encoder_s16 = WAVEncoder(codec=PCMCodec.PCM_S16LE)
+    encoder_s16(pcm, out_s16)
+    assert out_s16.exists()
+    assert out_s16.stat().st_size > 0
+    info_s16 = get_audio_info(out_s16)
+    assert info_s16.channels == 1
+    assert info_s16.sample_rate == 44100
+    assert info_s16.format_name == "wav"
+
+    # Decode encoded wav back
+    decoded_wav = decode(out_s16)
+    assert isinstance(decoded_wav, PCM)
+    assert len(decoded_wav.data) > 0
+
+    # 2. S24LE (.wav)
+    out_s24 = tmp_path / "test_s24.wav"
+    encoder_s24 = WAVEncoder(codec=PCMCodec.PCM_S24LE)
+    encoder_s24(pcm, out_s24)
+    assert out_s24.exists()
+    assert out_s24.stat().st_size > 0
+
+    # 3. S32LE (.wave)
+    out_s32 = tmp_path / "test_s32.wave"
+    encoder_s32 = WAVEncoder(codec=PCMCodec.PCM_S32LE)
+    encoder_s32(pcm, out_s32)
+    assert out_s32.exists()
+    assert out_s32.stat().st_size > 0
+
+    # 4. F32LE (.wav)
+    out_f32 = tmp_path / "test_f32.wav"
+    encoder_f32 = WAVEncoder(codec=PCMCodec.PCM_F32LE)
+    encoder_f32(pcm, out_f32)
+    assert out_f32.exists()
+    assert out_f32.stat().st_size > 0
 
 
 def test_encode_opus(tmp_path: Path) -> None:
@@ -472,6 +527,11 @@ def test_invalid_inputs_and_error_handling(tmp_path: Path) -> None:
     flac_enc = FLACEncoder()
     with pytest.raises(ValueError, match="Unsupported output file extension"):
         flac_enc(valid_pcm, tmp_path / "out.txt")
+
+    # 4d. Invalid extension for WAVEncoder
+    wav_enc = WAVEncoder()
+    with pytest.raises(ValueError, match="Unsupported output file extension"):
+        wav_enc(valid_pcm, tmp_path / "out.txt")
 
     # 5. File already exists and overwrite=False
     out_file = tmp_path / "existing.mp3"

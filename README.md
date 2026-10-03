@@ -10,10 +10,10 @@ A lightweight, robust Python audio I/O library powered by FFmpeg, designed witho
 
 - **Direct FFmpeg/FFprobe Integration**: Uses standard library `subprocess` and FFmpeg pipes for maximum performance, reliability, and minimal overhead.
 - **Unified Decoding API**: Decode diverse audio formats (MP3, AAC, AIFF, WAV, FLAC, OGG, etc.) into a structured `PCM` object with a single `decode()` function.
-- **Dedicated Audio Encoders**: High-level batch encoders for **MP3**, **AAC**, **AIFF**, **Opus**, and **FLAC** supporting configurable bitrates, compression levels, and modes.
+- **Dedicated Audio Encoders**: High-level batch encoders for **MP3**, **AAC**, **AIFF**, **WAV**, **Opus**, and **FLAC** supporting configurable bitrates, compression levels, and modes.
 - **Streaming Audio I/O**:
   - **`AudioStreamReader`**: Stream audio decoding chunk-by-chunk using standard FFmpeg pipes without intermediate files.
-  - **`StreamWriter`** (`MP3StreamWriter`, `AACStreamWriter`, `AIFFStreamWriter`, `OpusStreamWriter`, `FLACStreamWriter`): Incrementally feed PCM chunks directly into FFmpeg encoding processes.
+  - **`StreamWriter`** (`MP3StreamWriter`, `AACStreamWriter`, `AIFFStreamWriter`, `WAVStreamWriter`, `OpusStreamWriter`, `FLACStreamWriter`): Incrementally feed PCM chunks directly into FFmpeg encoding processes.
 - **NumPy Integration**: Seamlessly convert between `PCM` objects and `numpy.ndarray` via `pcm.as_numpy()` and `PCM.from_numpy()`.
 - **Strict Typing & Runtime Validation**: Fully type-hinted (PEP 561 `py.typed`, verified with Pyright) with comprehensive runtime parameter validation.
 - **Robust Error Handling**: Captures FFmpeg `stderr` and maps failures to a structured hierarchy derived from `PyFFmpegAudioIOError`.
@@ -148,6 +148,16 @@ encoder_aiff = AIFFEncoder(codec=PCMCodec.PCM_S16BE)
 encoder_aiff(pcm, "output.aiff", overwrite=True)
 ```
 
+#### WAV (`WAVEncoder`)
+
+```python
+from python_ffmpeg_audio_io import PCMCodec, WAVEncoder
+
+# Encode to 16-bit, 24-bit, 32-bit, or floating-point PCM in WAV container
+encoder_wav = WAVEncoder(codec=PCMCodec.PCM_S16LE)
+encoder_wav(pcm, "output.wav", overwrite=True)
+```
+
 #### Opus (`OpusEncoder`)
 
 ```python
@@ -229,7 +239,7 @@ print(f"Stream closed: {reader.closed}")  # True
 
 ### 6. Stream Audio Encoding (`StreamWriter`)
 
-Incrementally encode audio chunks directly to an output file. Stream writers are available for all supported formats (`MP3StreamWriter`, `AACStreamWriter`, `AIFFStreamWriter`, `OpusStreamWriter`, `FLACStreamWriter`).
+Incrementally encode audio chunks directly to an output file. Stream writers are available for all supported formats (`MP3StreamWriter`, `AACStreamWriter`, `AIFFStreamWriter`, `WAVStreamWriter`, `OpusStreamWriter`, `FLACStreamWriter`).
 
 ```python
 from python_ffmpeg_audio_io import (

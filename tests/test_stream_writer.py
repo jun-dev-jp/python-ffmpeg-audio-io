@@ -34,6 +34,7 @@ from python_ffmpeg_audio_io import (
     PCMFormat,
     PCMSampleRate,
     StreamClosedError,
+    WAVStreamWriter,
     get_audio_info,
 )
 
@@ -195,6 +196,54 @@ def test_aiff_stream_writer(tmp_path: Path, sample_pcm: PCM) -> None:
     info = get_audio_info(out_aiff)
     assert info.format_name == "aiff"
     assert info.channels == 1
+
+
+def test_wav_stream_writer(tmp_path: Path, sample_pcm: PCM) -> None:
+    """Test WAVStreamWriter with various PCM codecs and file extensions."""
+    # 1. Default (PCM_S16LE, .wav)
+    out_wav = tmp_path / "output.wav"
+    with WAVStreamWriter(
+        out_wav,
+        sample_rate=sample_pcm.sample_rate,
+        channels=sample_pcm.channels,
+        pcm_format=sample_pcm.format,
+    ) as writer:
+        assert writer.codec == PCMCodec.PCM_S16LE
+        writer.write(sample_pcm)
+
+    assert out_wav.exists()
+    info = get_audio_info(out_wav)
+    assert info.format_name == "wav"
+    assert info.channels == 1
+    assert info.sample_rate == 44100
+
+    # 2. PCM_S24LE (.wav)
+    out_wav24 = tmp_path / "output_s24.wav"
+    with WAVStreamWriter(
+        out_wav24,
+        sample_rate=sample_pcm.sample_rate,
+        channels=sample_pcm.channels,
+        pcm_format=sample_pcm.format,
+        codec=PCMCodec.PCM_S24LE,
+    ) as writer:
+        assert writer.codec == PCMCodec.PCM_S24LE
+        writer.write(sample_pcm)
+
+    assert out_wav24.exists()
+
+    # 3. PCM_F32LE (.wave)
+    out_wave_f32 = tmp_path / "output_f32.wave"
+    with WAVStreamWriter(
+        out_wave_f32,
+        sample_rate=sample_pcm.sample_rate,
+        channels=sample_pcm.channels,
+        pcm_format=sample_pcm.format,
+        codec=PCMCodec.PCM_F32LE,
+    ) as writer:
+        assert writer.codec == PCMCodec.PCM_F32LE
+        writer.write(sample_pcm)
+
+    assert out_wave_f32.exists()
 
 
 def test_flac_stream_writer(tmp_path: Path, sample_pcm: PCM) -> None:
@@ -432,6 +481,12 @@ def test_stream_writer_invalid_arguments(tmp_path: Path) -> None:
 
     with pytest.raises(TypeError, match="codec must be an instance of PCMCodec"):
         _ = AIFFStreamWriter(tmp_path / "a.aiff", codec=cast(Any, "pcm_s16be"))
+
+    with pytest.raises(TypeError, match="codec must be an instance of PCMCodec"):
+        _ = WAVStreamWriter(tmp_path / "a.wav", codec=cast(Any, "pcm_s16le"))
+
+    with pytest.raises(ValueError, match="Unsupported output file extension"):
+        _ = WAVStreamWriter(tmp_path / "a.mp3")
 
     with pytest.raises(
         TypeError, match="compression_level must be FLACEncoderCompressionLevel"

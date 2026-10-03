@@ -8,6 +8,7 @@ from .base import BaseAudioStreamWriter
 from .flac import FLACStreamWriter
 from .mp3 import MP3StreamWriter
 from .opus import OpusStreamWriter
+from .wav import WAVStreamWriter
 
 __all__ = [
     "AACStreamWriter",
@@ -16,4 +17,5 @@ __all__ = [
     "FLACStreamWriter",
     "MP3StreamWriter",
     "OpusStreamWriter",
+    "WAVStreamWriter",
 ]
