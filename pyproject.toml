@@ -3,20 +3,22 @@ name = "python-ffmpeg-audio-io"
 version = "0.3.0"
 description = "A lightweight, robust Python audio I/O library powered by FFmpeg without heavy third-party wrappers."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.13"
+license = "MIT"
+license-files = ["LICENSE"]
 dependencies = [
     "numpy>=2.0.0",
 ]
 classifiers = [
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
-    "License :: OSI Approved :: MIT License",
     "Topic :: Multimedia :: Sound/Audio",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
+
+[project.urls]
+Repository = "https://github.com/jun-dev-jp/python-ffmpeg-audio-io"
+Issues = "https://github.com/jun-dev-jp/python-ffmpeg-audio-io/issues"
 
 [build-system]
 requires = ["uv_build>=0.12.0,<0.13.0"]
@@ -31,7 +33,7 @@ dev = [
 
 [tool.ruff]
 line-length = 88
-target-version = "py311"
+target-version = "py313"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "RUF"]

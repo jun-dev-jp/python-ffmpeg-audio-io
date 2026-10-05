@@ -9,7 +9,7 @@ A lightweight and robust audio I/O library that directly wraps FFmpeg / FFprobe 
    - Use `numpy` for handling raw data and numerical arrays.
 2. **Package & Environment Management**:
    - Use `uv` for dependency management, virtual environment setup, and running tests.
-   - Target Python version: **Python 3.14** (compatible with 3.11+).
+   - Target Python version: **Python 3.14** (compatible with 3.13+).
 3. **Unified Interface**:
    - **Decoding**: Regardless of the input file format (MP3, WAV, AIFF, FLAC, AAC, etc.), decode to a `PCM` object holding raw PCM data via a unified API (`decode()` function).
    - **Metadata Extraction**: Retrieve audio metadata such as sample rate, channel count, bit rate, and duration via `get_audio_info()`.
@@ -52,6 +52,6 @@ A lightweight and robust audio I/O library that directly wraps FFmpeg / FFprobe 
 - **Docstrings**: All public APIs (modules, classes, functions, methods) must have Google-style docstrings (`Args`, `Returns`, `Raises`, etc.).
 - **Linter / Formatter**: `uv run ruff check` / `uv run ruff format`
 - **Testing & Token Conservation Policy**:
-  - Run tests locally **only on Python 3.14** (`uv run pytest` or targeted tests). Do not test across multiple Python versions (3.11, 3.12, 3.13) locally without explicit prior user confirmation.
+  - Run tests locally **only on Python 3.14** (`uv run pytest` or targeted tests). Do not test across multiple Python versions locally without explicit prior user confirmation.
   - Multi-version and multi-OS matrix testing is delegated to GitHub Actions CI to avoid excessive token consumption.
   - Prefer focused, minimal test runs (e.g. `uv run pytest tests/test_xxx.py -q`) during iterative development.
