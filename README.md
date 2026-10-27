@@ -239,6 +239,20 @@ with AudioStreamReader("samples/sample.mp3") as reader:
 print(f"Stream closed: {reader.closed}")  # True
 ```
 
+#### Stream Audio Playback (`examples/simple_audio_player.py`)
+
+Play an audio file without loading the complete decoded audio into memory. The example
+reads PCM chunks with `AudioStreamReader` and writes each chunk to the default output
+device using `sounddevice`:
+
+```bash
+uv run --group dev python examples/simple_audio_player.py path/to/audio.mp3
+```
+
+While the player is running, enter `p` to start or resume playback, `s` to pause at the
+current chunk position, or `q` to exit. The full command names `play`, `stop`, `quit`,
+and `exit` are also accepted.
+
 ### 6. Stream Audio Encoding (`StreamWriter`)
 
 Incrementally encode audio chunks directly to an output file. Stream writers are available for all supported formats (`MP3StreamWriter`, `AACStreamWriter`, `AIFFStreamWriter`, `WAVStreamWriter`, `OpusStreamWriter`, `FLACStreamWriter`).

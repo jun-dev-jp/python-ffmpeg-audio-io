@@ -1,5 +1,6 @@
-"""Example script demonstrating usage of AudioStreamReader with samples/sample.mp3."""
+"""Example script demonstrating usage of AudioStreamReader."""
 
+import argparse
 from pathlib import Path
 
 from python_ffmpeg_audio_io import (
@@ -10,18 +11,43 @@ from python_ffmpeg_audio_io import (
 )
 
 
-def main() -> None:
-    sample_path = Path("samples/sample.mp3")
-    if not sample_path.exists():
-        print(f"Sample file not found at {sample_path}")
+def parse_args(args: list[str] | None = None) -> argparse.Namespace:
+    """Parse command-line arguments.
+
+    Args:
+        args: Command-line arguments, or None to use sys.argv.
+
+    Returns:
+        Parsed command-line arguments.
+    """
+    parser = argparse.ArgumentParser(
+        description="Read an audio file in chunks.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument(
+        "input_file",
+        nargs="?",
+        type=Path,
+        default=Path("samples/sample.mp3"),
+        help="Path to the input audio file",
+    )
+    return parser.parse_args(args)
+
+
+def main(args: list[str] | None = None) -> None:
+    """Stream-read the audio file specified on the command line."""
+    parsed_args = parse_args(args)
+    input_path: Path = parsed_args.input_file
+    if not input_path.exists():
+        print(f"Audio file not found at {input_path}")
         return
 
-    print(f"Streaming audio file: {sample_path}\n")
+    print(f"Streaming audio file: {input_path}\n")
 
     try:
         # Read 4096 frames per chunk using 32-bit float PCM
         with AudioStreamReader(
-            sample_path,
+            input_path,
             pcm_codec=PCMCodec.PCM_F32LE,
             chunk_frames=4096,
         ) as reader:
