@@ -1,6 +1,7 @@
 # python-ffmpeg-audio-io
 
 [![CI](https://github.com/jun-dev-jp/python-ffmpeg-audio-io/actions/workflows/tests.yml/badge.svg)](https://github.com/jun-dev-jp/python-ffmpeg-audio-io/actions/workflows/tests.yml)
+[![Latest release](https://img.shields.io/github/v/release/jun-dev-jp/python-ffmpeg-audio-io?label=Latest%20release)](https://github.com/jun-dev-jp/python-ffmpeg-audio-io/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
 
@@ -26,12 +27,21 @@ A lightweight, robust Python audio I/O library powered by FFmpeg, designed witho
 ## Installation
 
 ```bash
-# Using uv
+# Latest commit from the default branch
 uv add git+https://github.com/jun-dev-jp/python-ffmpeg-audio-io.git
 
-# Using pip
+# Install a tagged release for a reproducible version
+uv add git+https://github.com/jun-dev-jp/python-ffmpeg-audio-io.git --tag v0.3.0
+
+# Using pip (latest commit from the default branch)
 pip install git+https://github.com/jun-dev-jp/python-ffmpeg-audio-io.git
+
+# Using pip with a tagged release
+pip install "git+https://github.com/jun-dev-jp/python-ffmpeg-audio-io.git@v0.3.0"
 ```
+
+See the [latest release](https://github.com/jun-dev-jp/python-ffmpeg-audio-io/releases/latest)
+for the current version and release notes.
 
 ## Quick Start
 
