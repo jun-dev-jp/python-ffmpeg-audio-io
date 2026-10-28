@@ -44,8 +44,8 @@ from python_ffmpeg_audio_io import (
 
 @pytest.fixture
 def sample_pcm() -> PCM:
-    """Fixture to decode sample.mp3 into PCM for tests."""
-    sample_path = Path("samples/sample.mp3")
+    """Fixture to decode 65_BPM93.mp3 into PCM for tests."""
+    sample_path = Path("samples/65_BPM93.mp3")
     with AudioStreamReader(
         sample_path, pcm_codec=PCMCodec.PCM_F32LE, chunk_frames=4096
     ) as reader:
@@ -55,8 +55,8 @@ def sample_pcm() -> PCM:
     return PCM(
         data=all_data,
         format=PCMFormat.F32LE,
-        sample_rate=PCMSampleRate.RATE_44K,
-        channels=PCMChannels.MONO,
+        sample_rate=PCMSampleRate.RATE_48K,
+        channels=PCMChannels.STEREO,
     )
 
 
@@ -122,9 +122,9 @@ def test_mp3_stream_writer_streaming(tmp_path: Path, sample_pcm: PCM) -> None:
 
     info = get_audio_info(out_file)
     assert isinstance(info, AudioInfo)
-    assert info.sample_rate == 44100
-    assert info.channels == 1
-    assert abs(info.duration - 36.0) < 1.0
+    assert info.sample_rate == 48000
+    assert info.channels == 2
+    assert abs(info.duration - 98.117333) < 1.0
 
 
 def test_stream_writer_write_bytes(tmp_path: Path, sample_pcm: PCM) -> None:
@@ -163,7 +163,7 @@ def test_aac_stream_writer(tmp_path: Path, sample_pcm: PCM) -> None:
     assert out_m4a.exists()
     info = get_audio_info(out_m4a)
     assert info.codec_name == "aac"
-    assert info.channels == 1
+    assert info.channels == 2
 
     # VBR
     out_aac = tmp_path / "output.aac"
@@ -198,7 +198,7 @@ def test_aiff_stream_writer(tmp_path: Path, sample_pcm: PCM) -> None:
     assert out_aiff.exists()
     info = get_audio_info(out_aiff)
     assert info.format_name == "aiff"
-    assert info.channels == 1
+    assert info.channels == 2
 
 
 def test_wav_stream_writer(tmp_path: Path, sample_pcm: PCM) -> None:
@@ -217,8 +217,8 @@ def test_wav_stream_writer(tmp_path: Path, sample_pcm: PCM) -> None:
     assert out_wav.exists()
     info = get_audio_info(out_wav)
     assert info.format_name == "wav"
-    assert info.channels == 1
-    assert info.sample_rate == 44100
+    assert info.channels == 2
+    assert info.sample_rate == 48000
 
     # 2. PCM_S24LE (.wav)
     out_wav24 = tmp_path / "output_s24.wav"
@@ -266,7 +266,7 @@ def test_flac_stream_writer(tmp_path: Path, sample_pcm: PCM) -> None:
     assert out_flac.exists()
     info = get_audio_info(out_flac)
     assert info.codec_name == "flac"
-    assert info.channels == 1
+    assert info.channels == 2
 
 
 def test_opus_stream_writer(tmp_path: Path, sample_pcm: PCM) -> None:
@@ -294,7 +294,7 @@ def test_opus_stream_writer(tmp_path: Path, sample_pcm: PCM) -> None:
 
 def test_piping_reader_to_writer(tmp_path: Path) -> None:
     """Test piping chunks directly from AudioStreamReader to MP3StreamWriter."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
     out_file = tmp_path / "piped.mp3"
 
     with AudioStreamReader(
@@ -311,8 +311,8 @@ def test_piping_reader_to_writer(tmp_path: Path) -> None:
 
     assert out_file.exists()
     info = get_audio_info(out_file)
-    assert info.channels == 1
-    assert abs(info.duration - 36.0) < 1.0
+    assert info.channels == 2
+    assert abs(info.duration - 98.117333) < 1.0
 
 
 def test_stream_writer_int_sample_rate_and_channels_raises_type_error(
@@ -397,7 +397,7 @@ def test_stream_writer_pcm_mismatch(tmp_path: Path, sample_pcm: PCM) -> None:
     # Sample rate mismatch
     with MP3StreamWriter(
         out_file,
-        sample_rate=PCMSampleRate.RATE_48K,
+        sample_rate=PCMSampleRate.RATE_44K,
         channels=sample_pcm.channels,
         pcm_format=sample_pcm.format,
     ) as writer:
@@ -409,7 +409,7 @@ def test_stream_writer_pcm_mismatch(tmp_path: Path, sample_pcm: PCM) -> None:
     with MP3StreamWriter(
         out_file2,
         sample_rate=sample_pcm.sample_rate,
-        channels=PCMChannels.STEREO,
+        channels=PCMChannels.MONO,
         pcm_format=sample_pcm.format,
     ) as writer:
         with pytest.raises(ValueError, match="Channel count mismatch"):

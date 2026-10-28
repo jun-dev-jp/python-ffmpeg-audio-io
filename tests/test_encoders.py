@@ -60,19 +60,19 @@ from python_ffmpeg_audio_io.pcm import (
 
 def test_sample_exists() -> None:
     """Verify that sample audio file exists."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
     assert sample_path.exists(), f"Sample file not found at {sample_path}"
 
 
 def test_ffprobe_on_sample() -> None:
     """Verify metadata extraction with ffprobe and get_audio_info."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
     info = get_audio_info(sample_path)
 
     assert isinstance(info, AudioInfo)
-    assert info.sample_rate == 44100
-    assert info.channels == 1
-    assert abs(info.duration - 36.022857) < 0.1
+    assert info.sample_rate == 48000
+    assert info.channels == 2
+    assert abs(info.duration - 98.117333) < 0.1
     assert info.codec_name == "mp3"
     assert info.format_name == "mp3"
     assert info.size > 0
@@ -85,13 +85,13 @@ def test_ffprobe_on_sample() -> None:
 
 def test_decoder_on_sample() -> None:
     """Verify decoding sample audio to PCM."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
     pcm = decode(sample_path, pcm_codec=PCMCodec.PCM_F32LE)
 
     assert isinstance(pcm, PCM)
     assert pcm.format == PCMFormat.F32LE
-    assert pcm.sample_rate == PCMSampleRate.RATE_44K
-    assert pcm.channels == PCMChannels.MONO
+    assert pcm.sample_rate == PCMSampleRate.RATE_48K
+    assert pcm.channels == PCMChannels.STEREO
     assert len(pcm.data) > 0
 
     # Also test decoding to another codec (e.g. S16LE)
@@ -104,7 +104,7 @@ def test_decoder_unsupported_metadata(tmp_path: Path) -> None:
     """Verify decoder raises PyFFmpegAudioIOError on unsupported
     channel or sample rate.
     """
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
 
     fake_info_bad_channels = AudioInfo(
         sample_rate=44100,
@@ -281,7 +281,7 @@ def test_encoders_instantiation_and_properties() -> None:
 
 def test_encode_mp3(tmp_path: Path) -> None:
     """Test actual encoding of PCM data to MP3 files with different modes."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
     pcm = decode(sample_path)
 
     # 1. CBR
@@ -293,8 +293,8 @@ def test_encode_mp3(tmp_path: Path) -> None:
     assert out_cbr.exists()
     assert out_cbr.stat().st_size > 0
     info_cbr = get_audio_info(out_cbr)
-    assert info_cbr.channels == 1
-    assert info_cbr.sample_rate == 44100
+    assert info_cbr.channels == 2
+    assert info_cbr.sample_rate == 48000
 
     # 2. ABR
     out_abr = tmp_path / "test_abr.mp3"
@@ -315,7 +315,7 @@ def test_encode_mp3(tmp_path: Path) -> None:
 
 def test_encode_aac(tmp_path: Path) -> None:
     """Test actual encoding of PCM data to AAC/M4A files."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
     pcm = decode(sample_path)
 
     # 1. CBR (.m4a)
@@ -327,8 +327,8 @@ def test_encode_aac(tmp_path: Path) -> None:
     assert out_cbr.exists()
     assert out_cbr.stat().st_size > 0
     info_cbr = get_audio_info(out_cbr)
-    assert info_cbr.channels == 1
-    assert info_cbr.sample_rate == 44100
+    assert info_cbr.channels == 2
+    assert info_cbr.sample_rate == 48000
 
     # 2. VBR (.aac)
     out_vbr = tmp_path / "test_vbr.aac"
@@ -341,7 +341,7 @@ def test_encode_aac(tmp_path: Path) -> None:
 
 def test_encode_aiff(tmp_path: Path) -> None:
     """Test actual encoding of PCM data to AIFF files."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
     pcm = decode(sample_path)
 
     # 1. S16BE (.aiff)
@@ -351,8 +351,8 @@ def test_encode_aiff(tmp_path: Path) -> None:
     assert out_s16.exists()
     assert out_s16.stat().st_size > 0
     info_s16 = get_audio_info(out_s16)
-    assert info_s16.channels == 1
-    assert info_s16.sample_rate == 44100
+    assert info_s16.channels == 2
+    assert info_s16.sample_rate == 48000
 
     # 2. S24BE (.aif)
     out_s24 = tmp_path / "test_s24.aif"
@@ -363,7 +363,7 @@ def test_encode_aiff(tmp_path: Path) -> None:
 
 def test_encode_wav(tmp_path: Path) -> None:
     """Test actual encoding of PCM data to WAV files."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
     pcm = decode(sample_path)
 
     # 1. S16LE (.wav)
@@ -373,8 +373,8 @@ def test_encode_wav(tmp_path: Path) -> None:
     assert out_s16.exists()
     assert out_s16.stat().st_size > 0
     info_s16 = get_audio_info(out_s16)
-    assert info_s16.channels == 1
-    assert info_s16.sample_rate == 44100
+    assert info_s16.channels == 2
+    assert info_s16.sample_rate == 48000
     assert info_s16.format_name == "wav"
 
     # Decode encoded wav back
@@ -406,7 +406,7 @@ def test_encode_wav(tmp_path: Path) -> None:
 
 def test_encode_opus(tmp_path: Path) -> None:
     """Test actual encoding of PCM data to Opus files."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
     pcm = decode(sample_path)
 
     # 1. VBR (.opus)
@@ -420,7 +420,7 @@ def test_encode_opus(tmp_path: Path) -> None:
     assert out_vbr.exists()
     assert out_vbr.stat().st_size > 0
     info_vbr = get_audio_info(out_vbr)
-    assert info_vbr.channels == 1
+    assert info_vbr.channels == 2
     assert info_vbr.codec_name == "opus"
 
     # Decode encoded opus back
@@ -451,7 +451,7 @@ def test_encode_opus(tmp_path: Path) -> None:
 
 def test_encode_flac(tmp_path: Path) -> None:
     """Test actual encoding of PCM data to FLAC files."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
     pcm = decode(sample_path)
 
     # 1. Compression level 5 (.flac)
@@ -463,8 +463,8 @@ def test_encode_flac(tmp_path: Path) -> None:
     assert out_flac.exists()
     assert out_flac.stat().st_size > 0
     info_flac = get_audio_info(out_flac)
-    assert info_flac.channels == 1
-    assert info_flac.sample_rate == 44100
+    assert info_flac.channels == 2
+    assert info_flac.sample_rate == 48000
     assert info_flac.codec_name == "flac"
 
     # Decode encoded flac back
@@ -561,7 +561,7 @@ def test_invalid_inputs_and_error_handling(tmp_path: Path) -> None:
 
     # 9. Decoder with invalid pcm_codec type
     with pytest.raises(TypeError, match="pcm_codec must be an instance of PCMCodec"):
-        _ = decode(Path("samples/sample.mp3"), pcm_codec=cast(Any, "pcm_f32le"))
+        _ = decode(Path("samples/65_BPM93.mp3"), pcm_codec=cast(Any, "pcm_f32le"))
 
     # 10. FFprobe with non-existent file
     with pytest.raises(FileReadError, match="Audio file not found"):
@@ -575,7 +575,7 @@ def test_invalid_inputs_and_error_handling(tmp_path: Path) -> None:
     with pytest.raises(
         TypeError, match="log_level must be an instance of FFprobeLogLevel"
     ):
-        _ = run_ffprobe(Path("samples/sample.mp3"), log_level=cast(Any, "error"))
+        _ = run_ffprobe(Path("samples/65_BPM93.mp3"), log_level=cast(Any, "error"))
 
 
 def test_base_audio_encoder_direct_checks() -> None:
@@ -651,7 +651,7 @@ def test_encoder_oserror(tmp_path: Path) -> None:
 
 def test_ffprobe_not_found() -> None:
     """Test that FileNotFoundError when running ffprobe raises FFmpegNotFoundError."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
     with patch(
         "python_ffmpeg_audio_io.ffprobe.subprocess.run",
         side_effect=FileNotFoundError("ffprobe not found"),
@@ -662,7 +662,7 @@ def test_ffprobe_not_found() -> None:
 
 def test_ffprobe_oserror() -> None:
     """Test that generic OSError when running ffprobe raises FFmpegError."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
     with patch(
         "python_ffmpeg_audio_io.ffprobe.subprocess.run",
         side_effect=OSError(13, "Permission denied"),
@@ -673,7 +673,7 @@ def test_ffprobe_oserror() -> None:
 
 def test_ffprobe_stdin_devnull() -> None:
     """Test that ffprobe is invoked with stdin=subprocess.DEVNULL."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
     mock_result = subprocess.CompletedProcess(
         args=[],
         returncode=0,

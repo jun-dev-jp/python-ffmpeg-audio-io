@@ -27,19 +27,19 @@ from python_ffmpeg_audio_io import (
 
 def test_decode_default_parameters() -> None:
     """Test decode() with default parameters preserving original attributes."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
     pcm = decode(sample_path)
 
     assert isinstance(pcm, PCM)
     assert pcm.format == PCMFormat.F32LE
-    assert pcm.sample_rate == PCMSampleRate.RATE_44K
-    assert pcm.channels == PCMChannels.MONO
+    assert pcm.sample_rate == PCMSampleRate.RATE_48K
+    assert pcm.channels == PCMChannels.STEREO
     assert len(pcm.data) > 0
 
 
 def test_decode_resampling() -> None:
     """Test decode() with target sample rate conversion (resampling)."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
 
     # Resample to 16kHz
     pcm_16k = decode(
@@ -48,8 +48,8 @@ def test_decode_resampling() -> None:
         duration=1.0,
     )
     assert pcm_16k.sample_rate == PCMSampleRate.RATE_16K
-    # 1.0s * 16000 samples/s * 1 ch * 4 bytes/sample = 64000 bytes
-    assert len(pcm_16k.data) == 64000
+    # 1.0s * 16000 samples/s * 2 ch * 4 bytes/sample = 128000 bytes
+    assert len(pcm_16k.data) == 128000
 
     # Resample to 48kHz
     pcm_48k = decode(
@@ -58,23 +58,23 @@ def test_decode_resampling() -> None:
         duration=1.0,
     )
     assert pcm_48k.sample_rate == PCMSampleRate.RATE_48K
-    # 1.0s * 48000 samples/s * 1 ch * 4 bytes/sample = 192000 bytes
-    assert len(pcm_48k.data) == 192000
+    # 1.0s * 48000 samples/s * 2 ch * 4 bytes/sample = 384000 bytes
+    assert len(pcm_48k.data) == 384000
 
 
 def test_decode_channel_conversion(tmp_path: Path) -> None:
     """Test decode() with channel conversion (upmix and downmix)."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
 
-    # Upmix mono to stereo using PCMChannels enum
+    # Decode as stereo, then exercise stereo-to-mono downmixing.
     pcm_stereo = decode(
         sample_path,
         channels=PCMChannels.STEREO,
         duration=1.0,
     )
     assert pcm_stereo.channels == PCMChannels.STEREO
-    # 1.0s * 44100 samples/s * 2 ch * 4 bytes/sample = 352800 bytes
-    assert len(pcm_stereo.data) == 352800
+    # 1.0s * 48000 samples/s * 2 ch * 4 bytes/sample = 384000 bytes
+    assert len(pcm_stereo.data) == 384000
 
     # Save stereo audio to test downmixing from stereo to mono
     stereo_file = tmp_path / "stereo.mp3"
@@ -87,12 +87,12 @@ def test_decode_channel_conversion(tmp_path: Path) -> None:
         duration=1.0,
     )
     assert pcm_mono.channels == PCMChannels.MONO
-    assert len(pcm_mono.data) == 176400
+    assert len(pcm_mono.data) == 192000
 
 
 def test_decode_seek_and_duration() -> None:
     """Test decode() with start_time and duration interval specification."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
 
     # Decode with specific duration
     pcm_cut = decode(
@@ -101,8 +101,8 @@ def test_decode_seek_and_duration() -> None:
         pcm_codec=PCMCodec.PCM_S16LE,
     )
     assert pcm_cut.format == PCMFormat.S16LE
-    # 0.5s * 44100 * 1 ch * 2 bytes/sample = 44100 bytes
-    assert len(pcm_cut.data) == 44100
+    # 0.5s * 48000 * 2 ch * 2 bytes/sample = 96000 bytes
+    assert len(pcm_cut.data) == 96000
 
     # Decode with start_time and duration
     pcm_seek_cut = decode(
@@ -111,8 +111,8 @@ def test_decode_seek_and_duration() -> None:
         duration=2.0,
         pcm_codec=PCMCodec.PCM_S16LE,
     )
-    # 2.0s * 44100 * 1 ch * 2 bytes/sample = 176400 bytes
-    assert len(pcm_seek_cut.data) == 176400
+    # 2.0s * 48000 * 2 ch * 2 bytes/sample = 384000 bytes
+    assert len(pcm_seek_cut.data) == 384000
 
     # Combined resampling, channel conversion, seek, and duration
     pcm_combined = decode(
@@ -131,7 +131,7 @@ def test_decode_seek_and_duration() -> None:
 
 def test_decode_timecode() -> None:
     """Test decode() with string timecode specifications."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
 
     # Timecode format "MM:SS"
     pcm_mmss = decode(
@@ -140,8 +140,8 @@ def test_decode_timecode() -> None:
         duration="00:02",
         pcm_codec=PCMCodec.PCM_S16LE,
     )
-    # 2.0s * 44100 * 1 ch * 2 bytes = 176400 bytes
-    assert len(pcm_mmss.data) == 176400
+    # 2.0s * 48000 * 2 ch * 2 bytes = 384000 bytes
+    assert len(pcm_mmss.data) == 384000
 
     # Timecode format "HH:MM:SS.mmm"
     pcm_hhmmss = decode(
@@ -150,8 +150,8 @@ def test_decode_timecode() -> None:
         duration="00:00:00.500",
         pcm_codec=PCMCodec.PCM_S16LE,
     )
-    # 0.5s * 44100 * 1 ch * 2 bytes = 44100 bytes
-    assert len(pcm_hhmmss.data) == 44100
+    # 0.5s * 48000 * 2 ch * 2 bytes = 96000 bytes
+    assert len(pcm_hhmmss.data) == 96000
 
     # Output matches numeric float specification
     pcm_float = decode(
@@ -165,7 +165,7 @@ def test_decode_timecode() -> None:
 
 def test_decode_seek_past_eof() -> None:
     """Test decode() seeking past end of audio file returns empty PCM."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
     pcm = decode(sample_path, start_time=100.0)
 
     assert isinstance(pcm, PCM)
@@ -174,7 +174,7 @@ def test_decode_seek_past_eof() -> None:
 
 def test_decode_input_validation(tmp_path: Path) -> None:
     """Test argument validation for decode()."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
 
     # Invalid path type
     with pytest.raises(AudioTypeError, match="path must be a str or PathLike"):
@@ -303,7 +303,7 @@ def test_decode_input_validation(tmp_path: Path) -> None:
 
 def test_decode_ffmpeg_not_found() -> None:
     """Test that FileNotFoundError when running FFmpeg raises FFmpegNotFoundError."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
     with patch(
         "python_ffmpeg_audio_io.decoder.subprocess.run",
         side_effect=FileNotFoundError("ffmpeg not found"),
@@ -318,7 +318,7 @@ def test_decode_ffmpeg_not_found() -> None:
 
 def test_decode_oserror() -> None:
     """Test that generic OSError when running FFmpeg raises FFmpegError."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
     with patch(
         "python_ffmpeg_audio_io.decoder.subprocess.run",
         side_effect=OSError(13, "Permission denied"),
@@ -333,7 +333,7 @@ def test_decode_oserror() -> None:
 
 def test_decode_nostdin_and_devnull() -> None:
     """Test that decode invokes FFmpeg with -nostdin and stdin=subprocess.DEVNULL."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
     mock_result = subprocess.CompletedProcess(
         args=[],
         returncode=0,

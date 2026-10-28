@@ -40,7 +40,7 @@ pip install git+https://github.com/jun-dev-jp/python-ffmpeg-audio-io.git
 ```python
 from python_ffmpeg_audio_io import get_audio_info
 
-info = get_audio_info("samples/sample.mp3")
+info = get_audio_info("samples/65_BPM93.mp3")
 print(f"Sample Rate: {info.sample_rate} Hz")
 print(f"Channels:    {info.channels}")
 print(f"Duration:    {info.duration:.2f} s")
@@ -54,7 +54,7 @@ print(f"Bitrate:     {info.bit_rate} bps")
 from python_ffmpeg_audio_io import PCMChannels, PCMCodec, PCMSampleRate, decode
 
 # Decode any supported audio file to raw PCM bytes (default: 32-bit float LE)
-pcm = decode("samples/sample.mp3", pcm_codec=PCMCodec.PCM_F32LE)
+pcm = decode("samples/65_BPM93.mp3", pcm_codec=PCMCodec.PCM_F32LE)
 
 print(f"Format:           {pcm.format.value}")  # e.g., 'f32le'
 print(f"Sample Rate:      {pcm.sample_rate.value}")  # e.g., 44100
@@ -66,7 +66,7 @@ print(f"Duration:         {pcm.duration:.2f} s")
 # Resampling, channel conversion, and time range trimming (seek & cut)
 # start_time and duration accept numeric seconds or timecode strings (e.g., "00:01:30.500", "01:23:45", "02:15")
 pcm_trimmed = decode(
-    "samples/sample.mp3",
+    "samples/65_BPM93.mp3",
     sample_rate=PCMSampleRate.RATE_16K,
     channels=PCMChannels.STEREO,
     start_time="00:00:01.000",  # start offset (seconds or timecode)
@@ -81,7 +81,7 @@ import numpy as np
 from python_ffmpeg_audio_io import PCM, PCMChannels, PCMSampleRate, decode
 
 # Decode and convert to a NumPy 2D array of shape (frames, channels)
-pcm = decode("samples/sample.mp3")
+pcm = decode("samples/65_BPM93.mp3")
 arr = pcm.as_numpy()
 print(f"NumPy array shape: {arr.shape}, dtype: {arr.dtype}")
 
@@ -202,7 +202,7 @@ from python_ffmpeg_audio_io import (
 )
 
 with AudioStreamReader(
-    "samples/sample.mp3",
+    "samples/65_BPM93.mp3",
     pcm_codec=PCMCodec.PCM_F32LE,
     chunk_frames=4096,
     sample_rate=PCMSampleRate.RATE_16K,  # optional resampling
@@ -228,7 +228,7 @@ You can detect when the audio stream has ended or closed:
 - **Stream Status (`reader.closed`)**: A boolean property indicating whether the stream has been closed (e.g., after exiting the `with` block or explicitly calling `reader.close()`). Calling `read()` on a closed stream raises `StreamClosedError`.
 
 ```python
-with AudioStreamReader("samples/sample.mp3") as reader:
+with AudioStreamReader("samples/65_BPM93.mp3") as reader:
     while True:
         chunk = reader.read()
         if chunk is None:
@@ -320,6 +320,18 @@ uv run ruff format
 # Static type checking
 uv run pyright
 ```
+
+## Sample Audio
+
+The examples and tests use [`samples/65_BPM93.mp3`](samples/65_BPM93.mp3), the track
+"Drunk" by Lunar Eclipse (BPM 93), provided by [BGMer](https://bgmer.net/music/lt065/).
+The included MP3 is approximately 1:38, 48 kHz stereo, encoded at 192 kbps.
+
+BGMer retains the copyright to the music. Redistribution and modification are permitted
+under the [BGMer terms of use](https://bgmer.net/terms/); this audio file is not covered
+by this project's MIT license. Suggested credit:
+
+> Music: BGMer — https://bgmer.net
 
 ## License
 

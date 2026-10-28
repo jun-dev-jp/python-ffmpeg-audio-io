@@ -12,7 +12,7 @@ from python_ffmpeg_audio_io import (
 
 
 def main() -> None:
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
     output_path = Path("samples/output_streamed.mp3")
 
     if not sample_path.exists():

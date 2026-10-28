@@ -28,7 +28,7 @@ def parse_args(args: list[str] | None = None) -> argparse.Namespace:
         "input_file",
         nargs="?",
         type=Path,
-        default=Path("samples/sample.mp3"),
+        default=Path("samples/65_BPM93.mp3"),
         help="Path to the input audio file",
     )
     return parser.parse_args(args)

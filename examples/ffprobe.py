@@ -14,7 +14,7 @@ from python_ffmpeg_audio_io.ffprobe import (
 
 
 def main() -> None:
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
     if not sample_path.exists():
         print(f"Sample file not found at {sample_path}")
         return

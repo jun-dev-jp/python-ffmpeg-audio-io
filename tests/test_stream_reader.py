@@ -31,18 +31,18 @@ from python_ffmpeg_audio_io import (
 
 def test_stream_reader_properties() -> None:
     """Test AudioStreamReader properties and initialization."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
     with AudioStreamReader(
         sample_path, pcm_codec=PCMCodec.PCM_F32LE, chunk_frames=2048
     ) as reader:
         assert isinstance(reader.info, AudioInfo)
-        assert reader.info.channels == 1
-        assert reader.info.sample_rate == 44100
+        assert reader.info.channels == 2
+        assert reader.info.sample_rate == 48000
         assert reader.pcm_codec == PCMCodec.PCM_F32LE
         assert reader.pcm_format == PCMFormat.F32LE
-        assert reader.sample_rate == PCMSampleRate.RATE_44K
+        assert reader.sample_rate == PCMSampleRate.RATE_48K
         assert reader.chunk_frames == 2048
-        assert reader.frame_size == 4  # f32 (4 bytes) * 1 channel
+        assert reader.frame_size == 8  # f32 (4 bytes) * 2 channels
         assert not reader.closed
 
     assert reader.closed
@@ -50,7 +50,7 @@ def test_stream_reader_properties() -> None:
 
 def test_stream_reader_iteration_matches_decoder() -> None:
     """Verify that streaming read produces identical data to batch decode()."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
 
     # Full decode using batch decoder
     decoded = decode(sample_path, pcm_codec=PCMCodec.PCM_S16LE)
@@ -71,7 +71,7 @@ def test_stream_reader_iteration_matches_decoder() -> None:
 
 def test_stream_reader_read_method() -> None:
     """Test manual read() and read_bytes() methods."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
     with AudioStreamReader(
         sample_path, pcm_codec=PCMCodec.PCM_F32LE, chunk_frames=1024
     ) as reader:
@@ -93,7 +93,7 @@ def test_stream_reader_read_method() -> None:
 
 def test_stream_reader_as_numpy() -> None:
     """Test converting streamed PCM chunks to NumPy arrays."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
     with AudioStreamReader(
         sample_path, pcm_codec=PCMCodec.PCM_F32LE, chunk_frames=1024
     ) as reader:
@@ -101,13 +101,13 @@ def test_stream_reader_as_numpy() -> None:
         assert chunk is not None
         arr = chunk.as_numpy()
         assert isinstance(arr, np.ndarray)
-        assert arr.shape == (1024, 1)
+        assert arr.shape == (1024, 2)
         assert arr.dtype == np.float32
 
 
 def test_stream_reader_closed_operations() -> None:
     """Test that operating on a closed reader raises StreamClosedError."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
     reader = AudioStreamReader(sample_path)
     reader.close()
     assert reader.closed
@@ -123,7 +123,7 @@ def test_stream_reader_closed_operations() -> None:
 
 def test_stream_reader_early_close() -> None:
     """Test closing reader before reading the full file."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
     with AudioStreamReader(sample_path, chunk_frames=1024) as reader:
         chunk = reader.read()
         assert chunk is not None
@@ -134,7 +134,7 @@ def test_stream_reader_early_close() -> None:
 
 def test_stream_reader_invalid_inputs(tmp_path: Path) -> None:
     """Test validation and error handling for invalid input parameters."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
 
     # Invalid path type
     with pytest.raises(TypeError, match="path must be a str or PathLike"):
@@ -171,7 +171,7 @@ def test_stream_reader_invalid_inputs(tmp_path: Path) -> None:
 
 def test_stream_reader_resampling_and_channels() -> None:
     """Test AudioStreamReader with resampling and channel conversion."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
 
     with AudioStreamReader(
         sample_path,
@@ -196,7 +196,7 @@ def test_stream_reader_resampling_and_channels() -> None:
 
 def test_stream_reader_seek_and_duration_matches_decoder() -> None:
     """Verify AudioStreamReader output matches decode() with seek and duration."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
 
     decoded = decode(
         sample_path,
@@ -225,7 +225,7 @@ def test_stream_reader_seek_and_duration_matches_decoder() -> None:
 
 def test_stream_reader_timecode() -> None:
     """Test AudioStreamReader with string timecode parameters."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
 
     with AudioStreamReader(
         sample_path,
@@ -237,13 +237,13 @@ def test_stream_reader_timecode() -> None:
         assert reader.duration == 1.5
         chunks = list(reader)
         total_bytes = b"".join(chunk.data for chunk in chunks)
-        # 1.5s * 44100 * 1 ch * 4 bytes = 264600 bytes
-        assert len(total_bytes) == 264600
+        # 1.5s * 48000 * 2 ch * 4 bytes = 576000 bytes
+        assert len(total_bytes) == 576000
 
 
 def test_stream_reader_invalid_new_parameters() -> None:
     """Test input validation for new parameters in AudioStreamReader."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
 
     # sample_rate validation (including int)
     with pytest.raises(
@@ -341,7 +341,7 @@ def dummy_audio_info() -> AudioInfo:
 
 def test_stream_reader_ffmpeg_not_found(dummy_audio_info: AudioInfo) -> None:
     """Test that FileNotFoundError when spawning FFmpeg raises FFmpegNotFoundError."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
     with (
         patch(
             "python_ffmpeg_audio_io.stream_reader.get_audio_info",
@@ -358,7 +358,7 @@ def test_stream_reader_ffmpeg_not_found(dummy_audio_info: AudioInfo) -> None:
 
 def test_stream_reader_oserror(dummy_audio_info: AudioInfo) -> None:
     """Test that generic OSError when spawning FFmpeg raises FFmpegError."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
     with (
         patch(
             "python_ffmpeg_audio_io.stream_reader.get_audio_info",
@@ -375,7 +375,7 @@ def test_stream_reader_oserror(dummy_audio_info: AudioInfo) -> None:
 
 def test_stream_reader_nostdin_and_devnull(dummy_audio_info: AudioInfo) -> None:
     """Test that FFmpeg is invoked with -nostdin and stdin=subprocess.DEVNULL."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
     with (
         patch(
             "python_ffmpeg_audio_io.stream_reader.get_audio_info",
@@ -402,7 +402,7 @@ def test_stream_reader_large_stderr_drain_no_deadlock(
     dummy_audio_info: AudioInfo,
 ) -> None:
     """Test that background thread drains large stderr without deadlock."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
     # Generate 128KB of stderr data (exceeding typical 64KB pipe buffer)
     large_stderr = b"A" * (128 * 1024)
     # Output 1 frame of PCM data (4 bytes)
@@ -444,7 +444,7 @@ def test_stream_reader_eof_race_condition_error_detection(
     Simulates the race condition where poll() would return None right after
     stdout reaches EOF, but wait() returns exit code 1 with an error on stderr.
     """
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
     error_msg = b"Decoder error occurred at end of file"
 
     with (
@@ -473,7 +473,7 @@ def test_stream_reader_eof_race_condition_error_detection(
 
 def test_stream_reader_unaligned_data(dummy_audio_info: AudioInfo) -> None:
     """Test that stream ending with unaligned data raises StreamBrokenError."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
     unaligned_bytes = b"\x00\x00\x00"  # 3 bytes, but frame_size is 4
 
     with (
@@ -499,7 +499,7 @@ def test_stream_reader_unaligned_data(dummy_audio_info: AudioInfo) -> None:
 
 def test_stream_reader_stdout_broken_pipe(dummy_audio_info: AudioInfo) -> None:
     """Test that BrokenPipeError on stdout read raises StreamBrokenError."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
 
     mock_stdout = MagicMock()
     mock_stdout.read.side_effect = BrokenPipeError("Pipe broken")
@@ -526,7 +526,7 @@ def test_stream_reader_stdout_broken_pipe(dummy_audio_info: AudioInfo) -> None:
 
 def test_stream_reader_subsequent_reads_after_eof() -> None:
     """Test that repeated read() calls after EOF continue to return None."""
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
     with AudioStreamReader(sample_path, duration=0.1) as reader:
         # Drain all chunks
         for _ in reader:

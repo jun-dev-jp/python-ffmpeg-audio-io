@@ -1,4 +1,4 @@
-"""Example script demonstrating usage of decode with samples/sample.mp3."""
+"""Example script demonstrating usage of decode with samples/65_BPM93.mp3."""
 
 from pathlib import Path
 
@@ -11,7 +11,7 @@ from python_ffmpeg_audio_io.exceptions import (
 
 
 def main() -> None:
-    sample_path = Path("samples/sample.mp3")
+    sample_path = Path("samples/65_BPM93.mp3")
     if not sample_path.exists():
         print(f"Sample file not found at {sample_path}")
         return
