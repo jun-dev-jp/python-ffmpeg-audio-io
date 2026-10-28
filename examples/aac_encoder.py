@@ -90,14 +90,13 @@ def main() -> None:
     else:
         param_str = f"{mode_enum.value.lower()}_{bitrate_enum.value}"
 
-    codec_name = "aac"
-    output_filename = f"{input_path.stem}_{codec_name}_{param_str}.m4a"
+    output_filename = f"{input_path.stem}_{param_str}.m4a"
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     output_path = OUTPUT_DIR / output_filename
 
     print(f"Input file:  {input_path}")
     print(f"Output file: {output_path}")
-    print(f"Codec:       {codec_name.upper()}")
+    print("Codec:       AAC")
     print(f"Mode:        {mode_enum.value}")
     if mode_enum == AACEncoderMode.VBR:
         print(f"Quality:     {quality_enum.value} (0=worst, 5=best)")

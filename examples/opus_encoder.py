@@ -84,15 +84,14 @@ def main() -> None:
     bitrate_enum = OpusEncoderBitrate(args.bitrate)
     app_enum = OpusEncoderApplication(args.application)
 
-    codec_name = "opus"
     param_str = f"{mode_enum.value.lower()}_{bitrate_enum.value}_{app_enum.value}"
-    output_filename = f"{input_path.stem}_{codec_name}_{param_str}.opus"
+    output_filename = f"{input_path.stem}_{param_str}.opus"
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     output_path = OUTPUT_DIR / output_filename
 
     print(f"Input file:  {input_path}")
     print(f"Output file: {output_path}")
-    print(f"Codec:       {codec_name.upper()}")
+    print("Codec:       OPUS")
     print(f"Mode:        {mode_enum.value}")
     print(f"Bitrate:     {bitrate_enum.value}")
     print(f"Application: {app_enum.value}")

@@ -5,8 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from os import PathLike
 
-from ..encoder.wav import SUPPORTED_WAV_FORMAT_NAMES
-from ..exceptions import AudioTypeError
+from ..encoder.wav import SUPPORTED_WAV_FORMAT_NAMES, _validate_wav_codec
 from ..pcm import PCMChannels, PCMCodec, PCMFormat, PCMSampleRate
 from .base import BaseAudioStreamWriter
 
@@ -41,16 +40,13 @@ class WAVStreamWriter(BaseAudioStreamWriter):
 
         Raises:
             AudioTypeError: If arguments are of incorrect type.
-            AudioValueError: If sample_rate, channels, or output file extension is
-                unsupported.
+            AudioValueError: If the codec, sample rate, channels, or output file
+                extension is unsupported.
             FileWriteError: If output file exists and overwrite is False.
             FFmpegNotFoundError: If FFmpeg executable is not in PATH.
             FFmpegError: If FFmpeg fails to start.
         """
-        if not isinstance(codec, PCMCodec):
-            t_name = type(codec).__name__
-            raise AudioTypeError(f"codec must be an instance of PCMCodec, got {t_name}")
-
+        _validate_wav_codec(codec)
         self._codec = codec
 
         super().__init__(

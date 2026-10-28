@@ -7,22 +7,9 @@ import sys
 from pathlib import Path
 
 from python_ffmpeg_audio_io.decoder import decode
-from python_ffmpeg_audio_io.encoder.wav import WAVEncoder
+from python_ffmpeg_audio_io.encoder.wav import SUPPORTED_WAV_CODECS, WAVEncoder
 from python_ffmpeg_audio_io.exceptions import PyFFmpegAudioIOError
 from python_ffmpeg_audio_io.pcm import PCMCodec
-
-WAV_SUPPORTED_CODECS: dict[str, PCMCodec] = {
-    "pcm_s16le": PCMCodec.PCM_S16LE,
-    "pcm_s24le": PCMCodec.PCM_S24LE,
-    "pcm_s32le": PCMCodec.PCM_S32LE,
-    "pcm_f32le": PCMCodec.PCM_F32LE,
-    "pcm_f64le": PCMCodec.PCM_F64LE,
-    "s16le": PCMCodec.PCM_S16LE,
-    "s24le": PCMCodec.PCM_S24LE,
-    "s32le": PCMCodec.PCM_S32LE,
-    "f32le": PCMCodec.PCM_F32LE,
-    "f64le": PCMCodec.PCM_F64LE,
-}
 
 OUTPUT_DIR = Path("examples/outputs")
 
@@ -51,7 +38,7 @@ def parse_args(args: list[str] | None = None) -> argparse.Namespace:
         "-c",
         "--codec",
         type=str.lower,
-        choices=list(WAV_SUPPORTED_CODECS.keys()),
+        choices=[codec.value for codec in SUPPORTED_WAV_CODECS],
         default="pcm_s16le",
         help="PCM codec for WAV encoding",
     )
@@ -73,15 +60,14 @@ def main() -> None:
         print(f"Error: Input file not found at '{input_path}'", file=sys.stderr)
         sys.exit(1)
 
-    codec_enum = WAV_SUPPORTED_CODECS[args.codec]
-    codec_name = "wav"
-    output_filename = f"{input_path.stem}_{codec_name}_{codec_enum.value}.wav"
+    codec_enum = PCMCodec(args.codec)
+    output_filename = f"{input_path.stem}_{codec_enum.value}.wav"
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     output_path = OUTPUT_DIR / output_filename
 
     print(f"Input file:  {input_path}")
     print(f"Output file: {output_path}")
-    print(f"Format:      {codec_name.upper()}")
+    print("Format:      WAV")
     print(f"PCM Codec:   {codec_enum.value}")
 
     print("\nDecoding input audio...")

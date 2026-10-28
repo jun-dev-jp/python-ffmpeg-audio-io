@@ -17,7 +17,7 @@ from python_ffmpeg_audio_io.encoder.aac import (
     AACEncoderMode,
     AACEncoderQualityLevel,
 )
-from python_ffmpeg_audio_io.encoder.aiff import AIFFEncoder
+from python_ffmpeg_audio_io.encoder.aiff import SUPPORTED_AIFF_CODECS, AIFFEncoder
 from python_ffmpeg_audio_io.encoder.base import BaseAudioEncoder
 from python_ffmpeg_audio_io.encoder.flac import (
     FLACEncoder,
@@ -35,8 +35,9 @@ from python_ffmpeg_audio_io.encoder.opus import (
     OpusEncoderBitrate,
     OpusEncoderMode,
 )
-from python_ffmpeg_audio_io.encoder.wav import WAVEncoder
+from python_ffmpeg_audio_io.encoder.wav import SUPPORTED_WAV_CODECS, WAVEncoder
 from python_ffmpeg_audio_io.exceptions import (
+    AudioValueError,
     FFmpegError,
     FFmpegNotFoundError,
     FileReadError,
@@ -62,6 +63,44 @@ def test_sample_exists() -> None:
     """Verify that sample audio file exists."""
     sample_path = Path("samples/65_BPM93.mp3")
     assert sample_path.exists(), f"Sample file not found at {sample_path}"
+
+
+def test_aiff_encoder_rejects_unsupported_codec() -> None:
+    """Reject PCM codecs that are not supported by the AIFF encoder."""
+    assert set(SUPPORTED_AIFF_CODECS) == {
+        PCMCodec.PCM_S16BE,
+        PCMCodec.PCM_S24BE,
+        PCMCodec.PCM_S32BE,
+        PCMCodec.PCM_F32BE,
+        PCMCodec.PCM_F64BE,
+    }
+
+    with pytest.raises(AudioValueError, match="Unsupported AIFF PCM codec"):
+        AIFFEncoder(codec=PCMCodec.PCM_S16LE)
+
+    encoder = AIFFEncoder()
+    with pytest.raises(AudioValueError, match="Unsupported AIFF PCM codec"):
+        encoder.codec = PCMCodec.PCM_S16LE
+    assert encoder.codec == PCMCodec.PCM_S16BE
+
+
+def test_wav_encoder_rejects_unsupported_codec() -> None:
+    """Reject PCM codecs that are not supported by the WAV encoder."""
+    assert set(SUPPORTED_WAV_CODECS) == {
+        PCMCodec.PCM_S16LE,
+        PCMCodec.PCM_S24LE,
+        PCMCodec.PCM_S32LE,
+        PCMCodec.PCM_F32LE,
+        PCMCodec.PCM_F64LE,
+    }
+
+    with pytest.raises(AudioValueError, match="Unsupported WAV PCM codec"):
+        WAVEncoder(codec=PCMCodec.PCM_S16BE)
+
+    encoder = WAVEncoder()
+    with pytest.raises(AudioValueError, match="Unsupported WAV PCM codec"):
+        encoder.codec = PCMCodec.PCM_S16BE
+    assert encoder.codec == PCMCodec.PCM_S16LE
 
 
 def test_ffprobe_on_sample() -> None:

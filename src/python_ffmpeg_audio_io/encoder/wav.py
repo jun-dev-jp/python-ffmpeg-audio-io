@@ -4,11 +4,27 @@ from __future__ import annotations
 
 from os import PathLike
 
-from ..exceptions import AudioTypeError
+from ..exceptions import AudioTypeError, AudioValueError
 from ..pcm import PCM, PCMCodec
 from .base import BaseAudioEncoder
 
 SUPPORTED_WAV_FORMAT_NAMES = ["wav", "wave"]
+SUPPORTED_WAV_CODECS: tuple[PCMCodec, ...] = (
+    PCMCodec.PCM_S16LE,
+    PCMCodec.PCM_S24LE,
+    PCMCodec.PCM_S32LE,
+    PCMCodec.PCM_F32LE,
+    PCMCodec.PCM_F64LE,
+)
+_SUPPORTED_WAV_CODECS = frozenset(SUPPORTED_WAV_CODECS)
+
+
+def _validate_wav_codec(codec: PCMCodec) -> None:
+    if not isinstance(codec, PCMCodec):
+        t_name = type(codec).__name__
+        raise AudioTypeError(f"codec must be an instance of PCMCodec, got {t_name}")
+    if codec not in _SUPPORTED_WAV_CODECS:
+        raise AudioValueError(f"Unsupported WAV PCM codec: {codec.value}")
 
 
 class WAVEncoder(BaseAudioEncoder):
@@ -25,10 +41,9 @@ class WAVEncoder(BaseAudioEncoder):
 
         Raises:
             AudioTypeError: If codec is not an instance of PCMCodec.
+            AudioValueError: If codec is unsupported for WAV.
         """
-        if not isinstance(codec, PCMCodec):
-            t_name = type(codec).__name__
-            raise AudioTypeError(f"codec must be an instance of PCMCodec, got {t_name}")
+        _validate_wav_codec(codec)
         self._codec: PCMCodec = codec
 
     def __call__(
@@ -46,7 +61,7 @@ class WAVEncoder(BaseAudioEncoder):
 
         Raises:
             AudioTypeError: If arguments are of incorrect type.
-            AudioValueError: If output format extension is unsupported.
+            AudioValueError: If the codec or output format extension is unsupported.
             FileWriteError: If output file exists and overwrite is False.
             FFmpegNotFoundError: If FFmpeg executable is not found in PATH.
             FFmpegError: If FFmpeg encoding fails.
@@ -71,14 +86,18 @@ class WAVEncoder(BaseAudioEncoder):
 
     @codec.setter
     def codec(self, value: PCMCodec) -> None:
-        """Set the codec of the WAV encoder."""
-        if not isinstance(value, PCMCodec):
-            t_name = type(value).__name__
-            raise AudioTypeError(f"codec must be an instance of PCMCodec, got {t_name}")
+        """Set the codec of the WAV encoder.
+
+        Raises:
+            AudioTypeError: If value is not a PCMCodec.
+            AudioValueError: If value is unsupported for WAV.
+        """
+        _validate_wav_codec(value)
         self._codec = value
 
 
 __all__ = [
+    "SUPPORTED_WAV_CODECS",
     "SUPPORTED_WAV_FORMAT_NAMES",
     "WAVEncoder",
 ]

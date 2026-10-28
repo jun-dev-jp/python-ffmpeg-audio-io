@@ -7,22 +7,9 @@ import sys
 from pathlib import Path
 
 from python_ffmpeg_audio_io.decoder import decode
-from python_ffmpeg_audio_io.encoder.aiff import AIFFEncoder
+from python_ffmpeg_audio_io.encoder.aiff import SUPPORTED_AIFF_CODECS, AIFFEncoder
 from python_ffmpeg_audio_io.exceptions import PyFFmpegAudioIOError
 from python_ffmpeg_audio_io.pcm import PCMCodec
-
-AIFF_SUPPORTED_CODECS: dict[str, PCMCodec] = {
-    "pcm_s16be": PCMCodec.PCM_S16BE,
-    "pcm_s24be": PCMCodec.PCM_S24BE,
-    "pcm_s32be": PCMCodec.PCM_S32BE,
-    "pcm_f32be": PCMCodec.PCM_F32BE,
-    "pcm_f64be": PCMCodec.PCM_F64BE,
-    "s16be": PCMCodec.PCM_S16BE,
-    "s24be": PCMCodec.PCM_S24BE,
-    "s32be": PCMCodec.PCM_S32BE,
-    "f32be": PCMCodec.PCM_F32BE,
-    "f64be": PCMCodec.PCM_F64BE,
-}
 
 OUTPUT_DIR = Path("examples/outputs")
 
@@ -51,7 +38,7 @@ def parse_args(args: list[str] | None = None) -> argparse.Namespace:
         "-c",
         "--codec",
         type=str.lower,
-        choices=list(AIFF_SUPPORTED_CODECS.keys()),
+        choices=[codec.value for codec in SUPPORTED_AIFF_CODECS],
         default="pcm_s16be",
         help="PCM codec for AIFF encoding",
     )
@@ -73,15 +60,14 @@ def main() -> None:
         print(f"Error: Input file not found at '{input_path}'", file=sys.stderr)
         sys.exit(1)
 
-    codec_enum = AIFF_SUPPORTED_CODECS[args.codec]
-    codec_name = "aiff"
-    output_filename = f"{input_path.stem}_{codec_name}_{codec_enum.value}.aiff"
+    codec_enum = PCMCodec(args.codec)
+    output_filename = f"{input_path.stem}_{codec_enum.value}.aiff"
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     output_path = OUTPUT_DIR / output_filename
 
     print(f"Input file:  {input_path}")
     print(f"Output file: {output_path}")
-    print(f"Format:      {codec_name.upper()}")
+    print("Format:      AIFF")
     print(f"PCM Codec:   {codec_enum.value}")
 
     print("\nDecoding input audio...")

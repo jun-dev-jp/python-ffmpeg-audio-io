@@ -18,6 +18,7 @@ from python_ffmpeg_audio_io import (
     AudioInfo,
     AudioStreamReader,
     AudioTypeError,
+    AudioValueError,
     BaseAudioStreamWriter,
     FFmpegError,
     FFmpegNotFoundError,
@@ -484,6 +485,12 @@ def test_stream_writer_invalid_arguments(tmp_path: Path) -> None:
 
     with pytest.raises(TypeError, match="codec must be an instance of PCMCodec"):
         _ = AIFFStreamWriter(tmp_path / "a.aiff", codec=cast(Any, "pcm_s16be"))
+
+    with pytest.raises(AudioValueError, match="Unsupported AIFF PCM codec"):
+        _ = AIFFStreamWriter(tmp_path / "a.aiff", codec=PCMCodec.PCM_S16LE)
+
+    with pytest.raises(AudioValueError, match="Unsupported WAV PCM codec"):
+        _ = WAVStreamWriter(tmp_path / "a.wav", codec=PCMCodec.PCM_S16BE)
 
     with pytest.raises(TypeError, match="codec must be an instance of PCMCodec"):
         _ = WAVStreamWriter(tmp_path / "a.wav", codec=cast(Any, "pcm_s16le"))

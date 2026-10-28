@@ -333,6 +333,10 @@ by this project's MIT license. Suggested credit:
 
 > Music: BGMer — https://bgmer.net
 
+The repository also includes converted versions of this same track in M4A/AAC, MP3,
+Opus, FLAC, AIFF, and WAV formats. These audio files are likewise covered by BGMer's
+terms of use, not by this project's MIT license.
+
 ## License
 
 [MIT License](LICENSE)

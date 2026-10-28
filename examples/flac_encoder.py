@@ -64,15 +64,14 @@ def main() -> None:
         sys.exit(1)
 
     compression_level = FLACEncoderCompressionLevel(args.compression_level)
-    codec_name = "flac"
     param_str = f"level{compression_level.value}"
-    output_filename = f"{input_path.stem}_{codec_name}_{param_str}.flac"
+    output_filename = f"{input_path.stem}_{param_str}.flac"
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     output_path = OUTPUT_DIR / output_filename
 
     print(f"Input file:        {input_path}")
     print(f"Output file:       {output_path}")
-    print(f"Codec:             {codec_name.upper()}")
+    print("Codec:             FLAC")
     print(f"Compression Level: {compression_level.value} (0=fastest, 12=highest)")
 
     print("\nDecoding input audio...")

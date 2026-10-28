@@ -90,14 +90,13 @@ def main() -> None:
     else:
         param_str = f"{mode_enum.value.lower()}_{bitrate_enum.value}"
 
-    codec_name = "mp3"
-    output_filename = f"{input_path.stem}_{codec_name}_{param_str}.mp3"
+    output_filename = f"{input_path.stem}_{param_str}.mp3"
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     output_path = OUTPUT_DIR / output_filename
 
     print(f"Input file:  {input_path}")
     print(f"Output file: {output_path}")
-    print(f"Codec:       {codec_name.upper()}")
+    print("Codec:       MP3")
     print(f"Mode:        {mode_enum.value}")
     if mode_enum == MP3EncoderMode.VBR:
         print(f"Quality:     {quality_enum.value} (0=best, 9=worst)")
